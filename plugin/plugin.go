@@ -1,4 +1,4 @@
-package gcloudkmsplugin
+package plugin
 
 import (
 	"encoding/base64"
