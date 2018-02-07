@@ -15,7 +15,10 @@
 FROM scratch
 LABEL maintainer="alextc@google.com"
 
-# Place our wrapper script into the image.
-COPY plugin /
+# Entry Point
+COPY k8s-cloudkms-plugin /
 
-ENTRYPOINT ["./plugin"]
+# Integration test
+COPY plugin/plugin.test /
+
+ENTRYPOINT ["./k8s-cloudkms-plugin"]

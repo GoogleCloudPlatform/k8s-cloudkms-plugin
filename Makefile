@@ -20,6 +20,7 @@ IMAGE = gke-cloud-kms-plugin
 TAG = v0.1.1
 BIN = gke-cloud-kms-plugin
 
+
 deps:
 	go get github.com/tools/godep
 	godep save
@@ -27,6 +28,7 @@ deps:
 build: clean deps
 	$(ENVVAR) godep go test ./...
 	$(ENVVAR) godep go build -o $(BIN)
+	$(ENVVAR) godep go test -c
 
 container: build
 	docker build --pull --no-cache -t ${REGISTRY}/$(IMAGE):$(TAG) .
