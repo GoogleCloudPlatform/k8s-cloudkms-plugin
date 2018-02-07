@@ -19,7 +19,6 @@ package plugin
 import (
 	"encoding/base64"
 	"fmt"
-	"log"
 
 	"github.com/golang/glog"
 
@@ -39,38 +38,38 @@ const (
 	// Unix Domain Socket
 	netProtocol    = "unix"
 	version        = "v1beta1"
-	runtime        = "Google CloudKMS"
+	runtime        = "CloudKMS"
 	runtimeVersion = "0.0.1"
 )
 
 type Plugin struct {
-	*cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
+	keys             *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
 	keyURI           string
 	pathToUnixSocket string
 	net.Listener
 	*grpc.Server
 }
 
-func New(projectID, locationID, keyRingID, keyID, pathToUnixSocketFile string) *Plugin {
+func New(projectID, locationID, keyRingID, keyID, pathToUnixSocketFile string) (*Plugin, error) {
 	ctx := context.Background()
 	client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to instantiate cloud sdk client: %v", err)
 	}
 
 	kmsClient, err := cloudkms.New(client)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to instantiate cloud kms client: %v", err)
 	}
 
 	keyUri := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s",
 		projectID, locationID, keyRingID, keyID)
 
 	plugin := new(Plugin)
-	plugin.ProjectsLocationsKeyRingsCryptoKeysService = kmsClient.Projects.Locations.KeyRings.CryptoKeys
+	plugin.keys = kmsClient.Projects.Locations.KeyRings.CryptoKeys
 	plugin.keyURI = keyUri
 	plugin.pathToUnixSocket = pathToUnixSocketFile
-	return plugin
+	return plugin, nil
 }
 
 func (g *Plugin) Start() error {
@@ -84,29 +83,25 @@ func (g *Plugin) Start() error {
 	}
 	g.Listener = listener
 
-	server := grpc.NewServer()
-	k8spb.RegisterKMSServiceServer(server, g)
-	g.Server = server
+	g.Server = grpc.NewServer()
+	k8spb.RegisterKMSServiceServer(g.Server, g)
 
-	go server.Serve(listener)
+	go g.Serve(listener)
 	return nil
 }
 
 func (g *Plugin) Stop() {
 	if g.Server != nil {
-
 		g.Server.Stop()
 	}
 
 	if g.Listener != nil {
-
 		g.Listener.Close()
 	}
 
 	if _, err := os.Stat(g.pathToUnixSocket); err == nil {
 		g.cleanSockFile()
 	}
-
 }
 
 func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k8spb.VersionResponse, error) {
@@ -114,40 +109,38 @@ func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k
 }
 
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {
-
 	glog.Infof("Processing EncryptRequest with keyURI: %s", g.keyURI)
 
 	kmsEncryptRequest := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
 
-	kmsEncryptResponse, err := g.ProjectsLocationsKeyRingsCryptoKeysService.Encrypt(g.keyURI, kmsEncryptRequest).Do()
+	kmsEncryptResponse, err := g.keys.Encrypt(g.keyURI, kmsEncryptRequest).Do()
 	if err != nil {
-		return &k8spb.EncryptResponse{}, err
+		return nil, err
 	}
 
 	cipher, err := base64.StdEncoding.DecodeString(kmsEncryptResponse.Ciphertext)
 	if err != nil {
-		return &k8spb.EncryptResponse{}, err
+		return nil, err
 	}
 
 	return &k8spb.EncryptResponse{Cipher: []byte(cipher)}, nil
 }
 
 func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k8spb.DecryptResponse, error) {
-
 	glog.Infof("Processing DecryptRequest with keyURI: %s", g.keyURI)
 
 	kmsDecryptRequest := &cloudkms.DecryptRequest{
 		Ciphertext: base64.StdEncoding.EncodeToString(request.Cipher),
 	}
 
-	kmsDecryptResponse, err := g.ProjectsLocationsKeyRingsCryptoKeysService.Decrypt(g.keyURI, kmsDecryptRequest).Do()
+	kmsDecryptResponse, err := g.keys.Decrypt(g.keyURI, kmsDecryptRequest).Do()
 	if err != nil {
-		return &k8spb.DecryptResponse{}, err
+		return nil, err
 	}
 
 	plain, err := base64.StdEncoding.DecodeString(kmsDecryptResponse.Plaintext)
 	if err != nil {
-		return &k8spb.DecryptResponse{}, err
+		return nil, err
 	}
 
 	return &k8spb.DecryptResponse{Plain: []byte(plain)}, nil

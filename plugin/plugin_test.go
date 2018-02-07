@@ -16,37 +16,49 @@ limitations under the License.
 
 package plugin
 
-import(
+import (
 	"log"
 	"testing"
 
 	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
 
-	"golang.org/x/net/context"
 	"fmt"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"net"
 	"time"
-	"google.golang.org/grpc"
+	"strconv"
 )
 
 const (
-	projectID string = "cloud-kms-lab"
-	locationID string = "us-central1"
-	keyRingID string = "ring-01"
-	keyID string = "my-key"
+	projectID        = "cloud-kms-lab"
+	locationID       = "us-central1"
+	keyRingID        = "ring-01"
+	keyID            = "my-key"
 	pathToUnixSocket = "/tmp/test.socket"
 )
+
+// Logger allows t.Testing and b.Testing to be passed to a method that executes testing logic.
+type Logger interface {
+	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+    Fatal(args ...interface{})
+	Logf(format string, args ...interface{})
+}
 
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	if err != nil {
+		t.Fatalf("failed to instantiate plugin, %v", err)
+	}
 
 	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher)}
@@ -56,66 +68,96 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 
 	if string(decryptResponse.Plain) != string(plainText) {
-		t.Errorf("Expected secret, but got %s", string(decryptResponse.Plain))
+		t.Fatalf("Expected secret, but got %s", string(decryptResponse.Plain))
 	}
 }
 
 func TestDecryptionError(t *testing.T) {
-
 	plainText := []byte("secret")
 
-	sut := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	if err != nil {
+		t.Fatalf("failed to instantiate plugin, %v", err)
+	}
 
 	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher[1:])}
 	_, err = sut.Decrypt(context.Background(), &decryptRequest)
 	if err == nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-
 }
 
 func TestRPC(t *testing.T) {
-	plainText := []byte("secret")
-	sut := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
-	err := sut.Start()
+	plugin, client, err := setup()
+	defer plugin.Stop()
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("setup failed, %v", err)
 	}
-	defer sut.Stop()
+
+	runGRPCTest(t, client, []byte("secret"))
+}
+
+func BenchmarkRPC(b *testing.B) {
+	b.StopTimer()
+	plugin, client, err := setup()
+	defer plugin.Stop()
+	if err != nil {
+		b.Fatalf("setup failed, %v", err)
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		runGRPCTest(b, client, []byte("secret" + strconv.Itoa(i))  )
+	}
+	b.StopTimer()
+}
+
+func setup() (*Plugin,  k8spb.KMSServiceClient, error) {
+	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
+	}
+	err = sut.Start()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to start gRPC Server, %v", err)
+	}
 
 	connection, err := newUnixSocketConnection(pathToUnixSocket)
 	if err != nil {
-		t.Error(err)
+		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
 	}
-	defer connection.Close()
 
 	client := k8spb.NewKMSServiceClient(connection)
+	return sut, client, nil
+}
 
+func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
 	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: plainText}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
-		t.Error(err)
+		l.Fatal(err)
 	}
 
 	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
-		t.Error(err)
+		l.Fatal(err)
 	}
 
 	if string(decryptResponse.Plain) != string(plainText) {
-		t.Errorf("Expected secret, but got %s", string(decryptResponse.Plain))
+		l.Fatalf("Expected secret, but got %s", string(decryptResponse.Plain))
 	}
 }
 
-func newUnixSocketConnection(path string) (*grpc.ClientConn, error)  {
+
+func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
 	protocol, addr := "unix", path
 	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
 		return net.DialTimeout(protocol, addr, timeout)
@@ -131,7 +173,10 @@ func newUnixSocketConnection(path string) (*grpc.ClientConn, error)  {
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	plugin, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	if err != nil {
+		log.Fatalf("failed to instantiate plugin, %v", err)
+	}
 
 	encryptRequest := k8spb.EncryptRequest{Version: "v1beta1", Plain: []byte(plainText)}
 	encryptResponse, err := plugin.Encrypt(context.Background(), &encryptRequest)
@@ -145,7 +190,10 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	plugin, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	if err != nil {
+		log.Fatalf("failed to instantiate plugin, %v", err)
+	}
 
 	decryptRequest := k8spb.DecryptRequest{Version: "v1beta1", Cipher: []byte(cipher)}
 	decryptResponse, err := plugin.Decrypt(context.Background(), &decryptRequest)
