@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc"
 	"net"
 	"os"
+	"time"
 )
 
 const (
@@ -41,6 +42,10 @@ const (
 	runtime        = "CloudKMS"
 	runtimeVersion = "0.0.1"
 )
+
+func init() {
+	RegisterMetrics()
+}
 
 type Plugin struct {
 	keys             *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
@@ -109,6 +114,7 @@ func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k
 }
 
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {
+	defer RecordCloudKMSOperation("encrypt", time.Now())
 	glog.Infof("Processing EncryptRequest with keyURI: %s", g.keyURI)
 
 	kmsEncryptRequest := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
@@ -127,6 +133,8 @@ func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k
 }
 
 func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k8spb.DecryptResponse, error) {
+	defer RecordCloudKMSOperation("decrypt", time.Now())
+
 	glog.Infof("Processing DecryptRequest with keyURI: %s", g.keyURI)
 
 	kmsDecryptRequest := &cloudkms.DecryptRequest{

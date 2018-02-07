@@ -23,11 +23,12 @@ import (
 	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
 
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"net"
-	"time"
 	"strconv"
+	"time"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 type Logger interface {
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...interface{})
-    Fatal(args ...interface{})
+	Fatal(args ...interface{})
 	Logf(format string, args ...interface{})
 }
 
@@ -114,12 +115,13 @@ func BenchmarkRPC(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		runGRPCTest(b, client, []byte("secret" + strconv.Itoa(i))  )
+		runGRPCTest(b, client, []byte("secret"+strconv.Itoa(i)))
 	}
 	b.StopTimer()
+	printMetrics(b)
 }
 
-func setup() (*Plugin,  k8spb.KMSServiceClient, error) {
+func setup() (*Plugin, k8spb.KMSServiceClient, error) {
 	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
@@ -156,7 +158,6 @@ func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
 	}
 }
 
-
 func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
 	protocol, addr := "unix", path
 	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
@@ -168,6 +169,23 @@ func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
 	}
 
 	return connection, nil
+}
+
+func printMetrics(l Logger) error {
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		return fmt.Errorf("failed to gather metrics: %s", err)
+	}
+
+	for _, mf := range metrics {
+		if *mf.Name == "cloudkms_kms_client_operation_latency_microseconds" {
+			for _, metric := range mf.GetMetric() {
+				l.Logf("%v", metric)
+			}
+		}
+	}
+
+	return nil
 }
 
 func ExampleEncrypt() {
