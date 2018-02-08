@@ -30,7 +30,6 @@ build: clean deps
 	$(ENVVAR) godep go build -o $(BIN)
 	$(ENVVAR) godep go test ./plugin -c
 
-
 container: build
 	docker build --pull --no-cache -t ${REGISTRY}/$(IMAGE):$(TAG) .
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM scratch
+FROM golang
 LABEL maintainer="alextc@google.com"
 
 # Entry Point
@@ -21,4 +21,16 @@ COPY k8s-cloud-kms-plugin /
 # Integration test
 COPY plugin.test /
 
-ENTRYPOINT ["./k8s-cloud-kms-plugin"]
+RUN mkdir /socket
+ENTRYPOINT ["/k8s-cloud-kms-plugin", "--project-id=cloud-kms-lab", "--location-id=us-central1", "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/tmp/kms-plugin.socket"]
+
+# Uncomment lines below only if testing in docker locally (not on GCE, GKE)
+# This will allow application default credentails to be loaded from an exported service account key-file.
+# On GKE credentials will be automatically provided via metadata server.
+# see: https://cloud.google.com/docs/authentication/production#auth-cloud-implicit-go
+# Fore details on how to export service account keys, see https://cloud.google.com/iam/docs/creating-managing-service-account-keys
+# The service account should be granted Cloud KMS CryptoKey Encrypter/Decrypter IAM Permission.
+
+# RUN mkdir /adc
+# COPY cloud-kms-lab-svc.json /adc
+# ENV GOOGLE_APPLICATION_CREDENTIALS=/adc/cloud-kms-lab-svc.json
