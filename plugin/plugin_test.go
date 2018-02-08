@@ -181,30 +181,16 @@ func printMetrics(l Logger) error {
 		return fmt.Errorf("failed to gather metrics: %s", err)
 	}
 
+	metricsOfInterest := []string{
+		"cloudkms_kms_client_operation_latency_microseconds",
+		"go_memstats_alloc_bytes_total",
+		"go_memstats_frees_total",
+		"process_cpu_seconds_total",
+	}
+
 	for _, mf := range metrics {
 		// l.Logf("%s", *mf.Name)
-		if *mf.Name == "cloudkms_kms_client_operation_latency_microseconds" {
-			for _, metric := range mf.GetMetric() {
-				l.Logf("%v", metric)
-			}
-		}
-
-		if *mf.Name == "go_memstats_alloc_bytes_total" {
-			l.Logf("%s", "go_memstats_alloc_bytes_total")
-			for _, metric := range mf.GetMetric() {
-				l.Logf("%v", metric)
-			}
-		}
-
-		if *mf.Name == "go_memstats_frees_total" {
-			l.Logf("%s", "go_memstats_frees_total")
-			for _, metric := range mf.GetMetric() {
-				l.Logf("%v", metric)
-			}
-		}
-
-		if *mf.Name == "process_cpu_seconds_total" {
-			l.Logf("%s", "process_cpu_seconds_total")
+		if contains(metricsOfInterest, *mf.Name) {
 			for _, metric := range mf.GetMetric() {
 				l.Logf("%v", metric)
 			}
@@ -246,4 +232,13 @@ func ExampleDecrypt() {
 	}
 
 	fmt.Printf("Plain: %s", string(decryptResponse.Plain))
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
