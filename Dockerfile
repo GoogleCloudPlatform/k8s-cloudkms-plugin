@@ -16,9 +16,9 @@ FROM scratch
 LABEL maintainer="alextc@google.com"
 
 # Entry Point
-COPY k8s-cloudkms-plugin /
+COPY k8s-cloud-kms-plugin /
 
 # Integration test
-COPY plugin/plugin.test /
+COPY plugin.test /
 
-ENTRYPOINT ["./k8s-cloudkms-plugin"]
+ENTRYPOINT ["./k8s-cloud-kms-plugin"]

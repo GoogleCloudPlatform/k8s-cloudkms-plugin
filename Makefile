@@ -16,9 +16,9 @@ all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
 REGISTRY = gcr.io/google_containers
-IMAGE = gke-cloud-kms-plugin
+IMAGE = k8s-cloud-kms-plugin
 TAG = v0.1.1
-BIN = gke-cloud-kms-plugin
+BIN = k8s-cloud-kms-plugin
 
 
 deps:
@@ -28,7 +28,8 @@ deps:
 build: clean deps
 	$(ENVVAR) godep go test ./...
 	$(ENVVAR) godep go build -o $(BIN)
-	$(ENVVAR) godep go test -c
+	$(ENVVAR) godep go test ./plugin -c
+
 
 container: build
 	docker build --pull --no-cache -t ${REGISTRY}/$(IMAGE):$(TAG) .

@@ -17,7 +17,7 @@ var (
 	keyRingID = flag.String("key-ring-id", "", "ID of the key-ring where keys are stored")
 	keyID = flag.String("key-id", "", "Id of the key use for crypto operations")
 
-	pathToUnixSocket = flag.String("path-to-unix-socket", "", "Full path to Unix socket that is used for communicating with KubeAPI Server")
+	pathToUnixSocket = flag.String("path-to-unix-socket", "/tmp/kms-plugin.socket", "Full path to Unix socket that is used for communicating with KubeAPI Server")
 )
 
 func main() {
@@ -28,13 +28,17 @@ func main() {
 		glog.Fatal(http.ListenAndServe(*metricsPort, nil))
 	}()
 
-	sut, err := plugin.New(*projectID, *locationID, *keyRingID, *keyID, *pathToUnixSocket)
+	kmsPlugin, err := plugin.New(*projectID, *locationID, *keyRingID, *keyID, *pathToUnixSocket)
 	if err != nil {
-		glog.Fatalf("failed to instantiate plugin, %v", err)
+		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}
-	err = sut.Start()
-	if err != nil {
-		glog.Fatalf("failed to start gRPC Server, %v", err)
-	}
+
+	go func() {
+		err = kmsPlugin.SetupRPCServer()
+		if err != nil {
+			glog.Fatalf("failed to start gRPC Server, %v", err)
+		}
+		kmsPlugin.Serve(kmsPlugin.Listener)
+	}()
 }
 

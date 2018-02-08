@@ -77,7 +77,7 @@ func New(projectID, locationID, keyRingID, keyID, pathToUnixSocketFile string) (
 	return plugin, nil
 }
 
-func (g *Plugin) Start() error {
+func (g *Plugin) SetupRPCServer() error {
 	if err := g.cleanSockFile(); err != nil {
 		return err
 	}
@@ -91,7 +91,6 @@ func (g *Plugin) Start() error {
 	g.Server = grpc.NewServer()
 	k8spb.RegisterKMSServiceServer(g.Server, g)
 
-	go g.Serve(listener)
 	return nil
 }
 

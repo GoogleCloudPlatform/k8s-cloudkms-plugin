@@ -126,10 +126,12 @@ func setup() (*Plugin, k8spb.KMSServiceClient, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
-	err = sut.Start()
+	err = sut.SetupRPCServer()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to start gRPC Server, %v", err)
 	}
+
+	go sut.Server.Serve(sut.Listener)
 
 	connection, err := newUnixSocketConnection(pathToUnixSocket)
 	if err != nil {
