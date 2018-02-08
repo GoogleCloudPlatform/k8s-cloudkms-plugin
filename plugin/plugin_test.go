@@ -158,6 +158,8 @@ func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
 	if string(decryptResponse.Plain) != string(plainText) {
 		l.Fatalf("Expected secret, but got %s", string(decryptResponse.Plain))
 	}
+
+	printMetrics(l)
 }
 
 func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
@@ -180,7 +182,29 @@ func printMetrics(l Logger) error {
 	}
 
 	for _, mf := range metrics {
+		// l.Logf("%s", *mf.Name)
 		if *mf.Name == "cloudkms_kms_client_operation_latency_microseconds" {
+			for _, metric := range mf.GetMetric() {
+				l.Logf("%v", metric)
+			}
+		}
+
+		if *mf.Name == "go_memstats_alloc_bytes_total" {
+			l.Logf("%s", "go_memstats_alloc_bytes_total")
+			for _, metric := range mf.GetMetric() {
+				l.Logf("%v", metric)
+			}
+		}
+
+		if *mf.Name == "go_memstats_frees_total" {
+			l.Logf("%s", "go_memstats_frees_total")
+			for _, metric := range mf.GetMetric() {
+				l.Logf("%v", metric)
+			}
+		}
+
+		if *mf.Name == "process_cpu_seconds_total" {
+			l.Logf("%s", "process_cpu_seconds_total")
 			for _, metric := range mf.GetMetric() {
 				l.Logf("%v", metric)
 			}

@@ -120,6 +120,7 @@ func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k
 
 	kmsEncryptResponse, err := g.keys.Encrypt(g.keyURI, kmsEncryptRequest).Do()
 	if err != nil {
+		CloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
 		return nil, err
 	}
 
@@ -142,6 +143,7 @@ func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k
 
 	kmsDecryptResponse, err := g.keys.Decrypt(g.keyURI, kmsDecryptRequest).Do()
 	if err != nil {
+		CloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
 		return nil, err
 	}
 

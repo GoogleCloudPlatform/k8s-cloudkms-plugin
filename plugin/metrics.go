@@ -28,11 +28,20 @@ const (
 )
 
 var (
-	CloudKMSClientOperationalLatencies = prometheus.NewSummaryVec(
+	CloudKMSOperationalLatencies = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Subsystem: cloudKMSSubsystem,
 			Name:      "kms_client_operation_latency_microseconds",
 			Help:      "Latency in microseconds of cloud kms operations.",
+		},
+		[]string{"operation_type"},
+	)
+
+	CloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: cloudKMSSubsystem,
+			Name:      "kms_client_operation_failures_total",
+			Help:      "Total number of failed kms operations.",
 		},
 		[]string{"operation_type"},
 	)
@@ -42,12 +51,12 @@ var registerMetrics sync.Once
 
 func RegisterMetrics() {
 	registerMetrics.Do(func() {
-		prometheus.MustRegister(CloudKMSClientOperationalLatencies)
+		prometheus.MustRegister(CloudKMSOperationalLatencies)
 	})
 }
 
 func RecordCloudKMSOperation(operationType string, start time.Time) {
-	CloudKMSClientOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMicroseconds(start))
+	CloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMicroseconds(start))
 }
 
 func sinceInMicroseconds(start time.Time) float64 {
