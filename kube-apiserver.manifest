@@ -51,8 +51,12 @@
     },
     {
       "name": "kms-plugin",
-      "image": "gcr.io/cloud-kms-lab/k8s-cloud-kms-plugin",
-      "command": ["/k8s-cloud-kms-plugin", "--project-id=cloud-kms-lab", "--location-id=us-central1", "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/etc/srv/kms/socket.sock"],
+      "image": "gcr.io/cloud-kms-lab/k8s-cloud-kms-plugin:v0.1.1",
+      "command": [
+        "/bin/bash",
+        "-c",
+        "exec /k8s-cloud-kms-plugin", "--project-id=cloud-kms-lab", "--location-id=us-central1", "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/etc/srv/kms/socket.sock"
+        ],
       "volumeMounts": [{ "name": "kmssocket", "mountPath": "/etc/srv/kms/socket.sock", "readOnly": false}]
     }
 ],
