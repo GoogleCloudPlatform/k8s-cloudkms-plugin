@@ -1,0 +1,10 @@
+kind: EncryptionConfig
+apiVersion: v1
+resources:
+  - resources:
+    - secrets
+    providers:
+    - kms:
+       name: grpc-kms-provider
+       cachesize: 1000
+       endpoint: unix:///tmp/kms-provider.sock

@@ -15,7 +15,7 @@
 all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-REGISTRY = gcr.io/google_containers
+REGISTRY = gcr.io/cloud-kms-lab
 IMAGE = k8s-cloud-kms-plugin
 TAG = v0.1.1
 BIN = k8s-cloud-kms-plugin
