@@ -33,12 +33,14 @@ func main() {
 		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}
 
-	go func() {
-		err = kmsPlugin.SetupRPCServer()
-		if err != nil {
-			glog.Fatalf("failed to start gRPC Server, %v", err)
-		}
-		kmsPlugin.Serve(kmsPlugin.Listener)
-	}()
+	err = kmsPlugin.SetupRPCServer()
+	if err != nil {
+		glog.Fatalf("failed to start gRPC Server, %v", err)
+	}
+
+	err = kmsPlugin.Serve(kmsPlugin.Listener)
+	if err != nil {
+		glog.Fatalf("failed to serve gRPC, %v", err)
+	}
 }
 

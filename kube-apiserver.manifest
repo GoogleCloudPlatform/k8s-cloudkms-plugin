@@ -55,7 +55,7 @@
       "command": [
         "/bin/bash",
         "-c",
-        "exec /k8s-cloud-kms-plugin", "--project-id=cloud-kms-lab", "--location-id=us-central1", "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/etc/srv/kms/socket.sock"
+        "exec /k8s-cloud-kms-plugin --project-id=cloud-kms-lab --location-id=us-central1 --key-ring-id=ring-01 --key-id=my-key --path-to-unix-socket=/etc/srv/kms/socket.sock 1>>/var/log/kms-plugin.log 2>&1"
         ],
       "volumeMounts": [{ "name": "kmssocket", "mountPath": "/etc/srv/kms/socket.sock", "readOnly": false}]
     }

@@ -12,17 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO: To minimize disk space use change to the base that is used by KUBEAPI Server
 FROM golang
 LABEL maintainer="alextc@google.com"
+
+ARG kms_project=cloud-kms-lab
+ARG kms_location=us-central1
+ARG kms_ring=ring-01
+ARG kms_key=my-key
+ARG socket_path=/tmp/kms-plugin.socket
 
 # Entry Point
 COPY k8s-cloud-kms-plugin /
 
-# Integration test
-COPY plugin.test /
+# Integration test (might be userfull if troubleshooting or benchmarking), remove in production.
+# COPY plugin.test /
 
-RUN mkdir /socket
-ENTRYPOINT ["/k8s-cloud-kms-plugin", "--project-id=cloud-kms-lab", "--location-id=us-central1", "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/tmp/kms-plugin.socket"]
+# Example CMD
+CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=${kms_project} --location-id=${kms_location} --key-ring-id=${kms_ring} --key-id=${kms_key} --path-to-unix-socket=${socket_path} --alsologtostderr 2>&1"]
 
 # Uncomment lines below only if testing in docker locally (not on GCE, GKE)
 # This will allow application default credentails to be loaded from an exported service account key-file.

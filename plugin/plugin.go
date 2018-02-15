@@ -28,11 +28,11 @@ import (
 	"google.golang.org/api/cloudkms/v1"
 
 	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
-	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"net"
-	"os"
 	"time"
+	"golang.org/x/sys/unix"
+	"os"
 )
 
 const (
@@ -87,6 +87,7 @@ func (g *Plugin) SetupRPCServer() error {
 		return fmt.Errorf("failed to start listener, error: %v", err)
 	}
 	g.Listener = listener
+	glog.Infof("Listening on unix domain socket: %s", g.pathToUnixSocket)
 
 	g.Server = grpc.NewServer()
 	k8spb.RegisterKMSServiceServer(g.Server, g)
@@ -101,10 +102,6 @@ func (g *Plugin) Stop() {
 
 	if g.Listener != nil {
 		g.Listener.Close()
-	}
-
-	if _, err := os.Stat(g.pathToUnixSocket); err == nil {
-		g.cleanSockFile()
 	}
 }
 
@@ -162,3 +159,5 @@ func (g *Plugin) cleanSockFile() error {
 	}
 	return nil
 }
+
+

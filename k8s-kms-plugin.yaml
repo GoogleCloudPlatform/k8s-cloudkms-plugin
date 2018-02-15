@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-cloud-kms-plugin
+
+spec:
+  hostNetwork: true
+  restartPolicy: Never
+
+  volumes:
+  - name: kmssocket
+    hostPath:
+      path: /var/run/kmsplugin
+      type: DirectoryOrCreate
+
+  containers:
+  - name: kms-plugin
+    image: gcr.io/cloud-kms-lab/k8s-cloud-kms-plugin:v0.1.1
+    imagePullPolicy: Always
+    command: ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=alextc-k8s-lab --location-id=global --key-ring-id=ring-01 --key-id=my-key --path-to-unix-socket=/var/run/kmsplugin/grpc.sock --alsologtostderr 2>&1"]
+    volumeMounts:
+    - name: kmssocket
+      mountPath: /var/run/kmsplugin
+      readOnly: false
