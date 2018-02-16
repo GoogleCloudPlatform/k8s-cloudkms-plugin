@@ -38,7 +38,7 @@ import (
 const (
 	// Unix Domain Socket
 	netProtocol    = "unix"
-	version        = "v1beta1"
+	APIVersion     = "v1beta1"
 	runtime        = "CloudKMS"
 	runtimeVersion = "0.0.1"
 )
@@ -106,7 +106,7 @@ func (g *Plugin) Stop() {
 }
 
 func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k8spb.VersionResponse, error) {
-	return &k8spb.VersionResponse{Version: version, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
+	return &k8spb.VersionResponse{Version: APIVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
 }
 
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {

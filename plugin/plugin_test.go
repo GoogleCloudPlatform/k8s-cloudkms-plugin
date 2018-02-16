@@ -55,14 +55,14 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := sut.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		t.Error(err)
@@ -81,14 +81,14 @@ func TestDecryptionError(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher[1:])}
+	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
 	_, err = sut.Decrypt(context.Background(), &decryptRequest)
 	if err == nil {
 		t.Fatal(err)
@@ -143,13 +143,13 @@ func setup() (*Plugin, k8spb.KMSServiceClient, error) {
 }
 
 func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
-	encryptRequest := k8spb.EncryptRequest{Version: version, Plain: plainText}
+	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: plainText}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
 		l.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: version, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		l.Fatal(err)

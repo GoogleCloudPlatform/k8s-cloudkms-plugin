@@ -16,12 +16,6 @@
 FROM golang
 LABEL maintainer="alextc@google.com"
 
-ARG kms_project=cloud-kms-lab
-ARG kms_location=us-central1
-ARG kms_ring=ring-01
-ARG kms_key=my-key
-ARG socket_path=/tmp/kms-plugin.socket
-
 # Entry Point
 COPY k8s-cloud-kms-plugin /
 
@@ -29,7 +23,7 @@ COPY k8s-cloud-kms-plugin /
 # COPY plugin.test /
 
 # Example CMD
-CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=${kms_project} --location-id=${kms_location} --key-ring-id=${kms_ring} --key-id=${kms_key} --path-to-unix-socket=${socket_path} --alsologtostderr 2>&1"]
+CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=alextc-k8s-lab --location-id=global --key-ring-id=ring-01 --key-id=my-key --path-to-unix-socket=/tmp/kms-plugin.socket --alsologtostderr 2>&1"]
 
 # Uncomment lines below only if testing in docker locally (not on GCE, GKE)
 # This will allow application default credentails to be loaded from an exported service account key-file.
