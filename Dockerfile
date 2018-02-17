@@ -32,6 +32,6 @@ CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=alextc-k8s-lab --
 # Fore details on how to export service account keys, see https://cloud.google.com/iam/docs/creating-managing-service-account-keys
 # The service account should be granted Cloud KMS CryptoKey Encrypter/Decrypter IAM Permission.
 
-# RUN mkdir /adc
-# COPY cloud-kms-lab-svc.json /adc
-# ENV GOOGLE_APPLICATION_CREDENTIALS=/adc/cloud-kms-lab-svc.json
+RUN mkdir /adc
+COPY cloud-kms-lab-svc.json /adc
+ENV GOOGLE_APPLICATION_CREDENTIALS=/adc/cloud-kms-lab-svc.json
