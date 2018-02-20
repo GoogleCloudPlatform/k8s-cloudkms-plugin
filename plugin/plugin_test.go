@@ -25,10 +25,7 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"net"
 	"strconv"
-	"time"
 )
 
 const (
@@ -133,7 +130,7 @@ func setup() (*Plugin, k8spb.KMSServiceClient, error) {
 
 	go sut.Server.Serve(sut.Listener)
 
-	connection, err := newUnixSocketConnection(pathToUnixSocket)
+	connection, err := sut.NewUnixSocketConnection()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
 	}
@@ -160,19 +157,6 @@ func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
 	}
 
 	printMetrics(l)
-}
-
-func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
-	protocol, addr := "unix", path
-	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout(protocol, addr, timeout)
-	}
-	connection, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
-	if err != nil {
-		return nil, err
-	}
-
-	return connection, nil
 }
 
 func printMetrics(l Logger) error {

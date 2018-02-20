@@ -22,8 +22,16 @@ COPY k8s-cloud-kms-plugin /
 # Integration test (might be userfull if troubleshooting or benchmarking), remove in production.
 # COPY plugin.test /
 
+
+ENV project_id alextc-k8s-lab
+ENV location_id global
+ENV key_ring_id ring-01
+ENV key_id my-key
+ENV path_to_unix_socket /tmp/kms-plugin.socket
+ENV metrics_port 8081
+
 # Example CMD
-CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=alextc-k8s-lab --location-id=global --key-ring-id=ring-01 --key-id=my-key --path-to-unix-socket=/tmp/kms-plugin.socket --alsologtostderr 2>&1"]
+CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=${project_id} --location-id=${location_id} --key-ring-id=${key_ring_id} --key-id=${key_id} --path-to-unix-socket=${path_to_unix_socket} --alsologtostderr 2>&1"]
 
 # Uncomment lines below only if testing in docker locally (not on GCE, GKE)
 # This will allow application default credentails to be loaded from an exported service account key-file.

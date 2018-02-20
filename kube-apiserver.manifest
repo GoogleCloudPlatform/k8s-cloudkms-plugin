@@ -23,6 +23,7 @@
         "cpu": "250m"
       }
     },
+    imagePullPolicy": "Always",
     "command": [
                  "/bin/sh",
                  "-c",

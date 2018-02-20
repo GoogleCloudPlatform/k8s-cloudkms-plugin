@@ -10,14 +10,16 @@ import (
 	"os"
 	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"time"
-	"net"
 )
 
 var (
-	metricsPort = flag.String("metrics-addr", ":8080", "Address at which to publish metrics")
+	metricsPort = flag.String("metrics-addr", ":8081", "Address at which to publish metrics")
 	metricsPath = flag.String("metrics-path", "/metrics", "Path at which to publish metrics")
+
+	healthzPort = flag.String("healthz-addr", ":8082", "Address at which to publish healthz")
+	healthzPath = flag.String("healthz-path", "/healthz", "Path at which to publish healthz")
+
 
 	projectID  = flag.String("project-id", "", "Cloud project where KMS key-ring is hosted")
 	locationID = flag.String("location-id", "global", "Location of the key-ring")
@@ -59,11 +61,11 @@ func main() {
 	glog.Infof("Pinging KMS gRPC in 10ms.")
 	go func () {
 		time.Sleep(10 * time.Millisecond)
-		mustPingRPC()
+		mustPingRPC(kmsPlugin)
 
 		// Now we can declare healthz OK.
-		http.HandleFunc("/healthz", handleHealthz)
-		glog.Fatal(http.ListenAndServe(":8081", nil))
+		http.HandleFunc(*healthzPath, handleHealthz)
+		glog.Fatal(http.ListenAndServe(*healthzPort, nil))
 	}()
 
 	glog.Infof("About to server gRPC")
@@ -73,6 +75,7 @@ func main() {
 		glog.Fatalf("failed to serve gRPC, %v", err)
 	}
 }
+
 
 func mustPingKMS(kms *plugin.Plugin) {
 	plainText := []byte("secret")
@@ -99,15 +102,15 @@ func mustPingKMS(kms *plugin.Plugin) {
 	glog.Infof("Successfully pinged KMS.")
 }
 
-func mustPingRPC() {
+func mustPingRPC(kms *plugin.Plugin) {
 	glog.Infof("Pinging KMS gRPC.")
 
-	connection, err := newUnixSocketConnection(*pathToUnixSocket)
+	connection, err := kms.NewUnixSocketConnection()
 	if err != nil {
 		glog.Fatalf("failed to open unix socket, %v", err)
 	}
-
 	client := k8spb.NewKMSServiceClient(connection)
+
 	plainText := []byte("secret")
 
 	encryptRequest := k8spb.EncryptRequest{Version: plugin.APIVersion, Plain: []byte(plainText)}
@@ -128,19 +131,6 @@ func mustPingRPC() {
 	}
 
 	glog.Infof("Successfully pinged gRPC KMS.")
-}
-
-func newUnixSocketConnection(path string) (*grpc.ClientConn, error) {
-	protocol, addr := "unix", path
-	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout(protocol, addr, timeout)
-	}
-	connection, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
-	if err != nil {
-		return nil, err
-	}
-
-	return connection, nil
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {

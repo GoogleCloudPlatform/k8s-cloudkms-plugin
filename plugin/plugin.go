@@ -160,4 +160,17 @@ func (g *Plugin) cleanSockFile() error {
 	return nil
 }
 
+func (g *Plugin) NewUnixSocketConnection() (*grpc.ClientConn, error) {
+	protocol, addr := "unix", g.pathToUnixSocket
+	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
+		return net.DialTimeout(protocol, addr, timeout)
+	}
+	connection, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
+	if err != nil {
+		return nil, err
+	}
+
+	return connection, nil
+}
+
 

@@ -8,3 +8,4 @@ resources:
        name: grpc-kms-provider
        cachesize: 1000
        endpoint: unix:///var/run/kmsplugin/socket.sock
+    - identity: {}
