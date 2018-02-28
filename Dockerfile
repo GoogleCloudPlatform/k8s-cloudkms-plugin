@@ -12,26 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: To minimize disk space use change to the base that is used by KUBEAPI Server
-FROM golang
+FROM scratch
 LABEL maintainer="alextc@google.com"
 
-# Entry Point
 COPY k8s-cloud-kms-plugin /
+ADD ca-certificates.crt /etc/ssl/certs/
 
 # Integration test (might be userfull if troubleshooting or benchmarking), remove in production.
 # COPY plugin.test /
-
-
-ENV project_id alextc-k8s-lab
-ENV location_id global
-ENV key_ring_id ring-01
-ENV key_id my-key
-ENV path_to_unix_socket /tmp/kms-plugin.socket
-ENV metrics_port 8081
-
-# Example CMD
-CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=${project_id} --location-id=${location_id} --key-ring-id=${key_ring_id} --key-id=${key_id} --path-to-unix-socket=${path_to_unix_socket} --alsologtostderr 2>&1"]
 
 # Uncomment lines below only if testing in docker locally (not on GCE, GKE)
 # This will allow application default credentails to be loaded from an exported service account key-file.
@@ -39,7 +27,9 @@ CMD ["/bin/sh", "-c", "exec /k8s-cloud-kms-plugin --project-id=${project_id} --l
 # see: https://cloud.google.com/docs/authentication/production#auth-cloud-implicit-go
 # Fore details on how to export service account keys, see https://cloud.google.com/iam/docs/creating-managing-service-account-keys
 # The service account should be granted Cloud KMS CryptoKey Encrypter/Decrypter IAM Permission.
+# COPY cloud-kms-lab-svc.json /
+# ENV GOOGLE_APPLICATION_CREDENTIALS=/cloud-kms-lab-svc.json
 
-# RUN mkdir /adc
-# COPY cloud-kms-lab-svc.json /adc
-# ENV GOOGLE_APPLICATION_CREDENTIALS=/adc/cloud-kms-lab-svc.json
+CMD ["/k8s-cloud-kms-plugin", "--project-id=alextc-k8s-lab",  "--location-id=global",  "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/kms-plugin.socket", "--logtostderr", "2>&1"]
+
+
