@@ -53,7 +53,7 @@
     {
       "name": "kms-plugin",
       "image": "gcr.io/cloud-kms-lab/k8s-cloud-kms-plugin:v0.1.1",
-      "command": ["/k8s-cloud-kms-plugin", "--project-id=alextc-k8s-lab",  "--location-id=global",  "--key-ring-id=ring-01", "--key-id=my-key", "--path-to-unix-socket=/var/run/kmsplugin/socket.sock", "--logtostderr", "2>&1"],
+      "command": ["/k8s-cloud-kms-plugin", "--project-id={{kms_project}}",  "--location-id={{kms_location}}",  "--key-ring-id={{kms_ring}}", "--key-id={{kms_key}}", "--path-to-unix-socket={{kms_path_to_socket}}", "--logtostderr", "2>&1"],
       "livenessProbe": { "httpGet": {"host": "127.0.0.1", "port": 8081, "path": "/healthz"}, "initialDelaySeconds": 3, "timeoutSeconds": 3},
       "ports":[{ "name": "local", "containerPort": 8081, "hostPort": 8081}],
       "volumeMounts": [{ "name": "kmssocket", "mountPath": "/var/run/kmsplugin", "readOnly": false}]
