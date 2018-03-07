@@ -18,15 +18,16 @@ package main
 
 import (
 	"flag"
-	"path/filepath"
-	"github.com/golang/glog"
-	"github.com/immutablet/k8s-kms-plugin/plugin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"os"
-	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
-	"golang.org/x/net/context"
+	"path/filepath"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/immutablet/k8s-cloudkms-plugin/plugin"
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/net/context"
 )
 
 var (
@@ -35,7 +36,6 @@ var (
 
 	healthzPort = flag.String("healthz-addr", ":8082", "Address at which to publish healthz")
 	healthzPath = flag.String("healthz-path", "/healthz", "Path at which to publish healthz")
-
 
 	projectID  = flag.String("project-id", "", "Cloud project where KMS key-ring is hosted")
 	locationID = flag.String("location-id", "global", "Location of the key-ring")
@@ -53,7 +53,7 @@ func main() {
 	socketDir := filepath.Dir(*pathToUnixSocket)
 	_, err := os.Stat(socketDir)
 	glog.Infof("Unix Socket directory is %s", socketDir)
-	if err != nil &&  os.IsNotExist(err) {
+	if err != nil && os.IsNotExist(err) {
 		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
 	}
 	glog.Infof("Communicating with KUBE API via %s", *pathToUnixSocket)
@@ -75,7 +75,7 @@ func main() {
 	}
 
 	glog.Infof("Pinging KMS gRPC in 10ms.")
-	go func () {
+	go func() {
 		time.Sleep(10 * time.Millisecond)
 		mustPingRPC(kmsPlugin)
 
@@ -91,7 +91,6 @@ func main() {
 		glog.Fatalf("failed to serve gRPC, %v", err)
 	}
 }
-
 
 func mustPingKMS(kms *plugin.Plugin) {
 	plainText := []byte("secret")
@@ -125,7 +124,7 @@ func mustPingRPC(kms *plugin.Plugin) {
 	if err != nil {
 		glog.Fatalf("failed to open unix socket, %v", err)
 	}
-	client := k8spb.NewKMSServiceClient(connection)
+	client := k8spb.NewKeyManagementServiceClient(connection)
 
 	plainText := []byte("secret")
 

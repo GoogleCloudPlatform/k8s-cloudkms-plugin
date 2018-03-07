@@ -25,14 +25,14 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 
-	"google.golang.org/api/cloudkms/v1"
-
-	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
-	"google.golang.org/grpc"
 	"net"
-	"time"
-	"golang.org/x/sys/unix"
 	"os"
+	"time"
+
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	"golang.org/x/sys/unix"
+	cloudkms "google.golang.org/api/cloudkms/v1"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -90,7 +90,7 @@ func (g *Plugin) SetupRPCServer() error {
 	glog.Infof("Listening on unix domain socket: %s", g.pathToUnixSocket)
 
 	g.Server = grpc.NewServer()
-	k8spb.RegisterKMSServiceServer(g.Server, g)
+	k8spb.RegisterKeyManagementServiceServer(g.Server, g)
 
 	return nil
 }
@@ -172,5 +172,3 @@ func (g *Plugin) NewUnixSocketConnection() (*grpc.ClientConn, error) {
 
 	return connection, nil
 }
-
-

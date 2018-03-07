@@ -20,19 +20,20 @@ import (
 	"log"
 	"testing"
 
-	k8spb "github.com/immutablet/k8s-kms-plugin/v1beta1"
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 
 	"fmt"
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
-	"strconv"
 )
 
 const (
-	projectID        = "cloud-kms-lab"
-	locationID       = "us-central1"
-	keyRingID        = "ring-01"
-	keyID            = "my-key"
+	projectID        = "alextc-k8s-lab"
+	locationID       = "global"
+	keyRingID        = "kms-plugin-test-ring"
+	keyID            = "kms-plugin-test-key"
 	pathToUnixSocket = "/tmp/test.socket"
 )
 
@@ -118,7 +119,7 @@ func BenchmarkRPC(b *testing.B) {
 	printMetrics(b)
 }
 
-func setup() (*Plugin, k8spb.KMSServiceClient, error) {
+func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
 	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
@@ -135,11 +136,11 @@ func setup() (*Plugin, k8spb.KMSServiceClient, error) {
 		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
 	}
 
-	client := k8spb.NewKMSServiceClient(connection)
+	client := k8spb.NewKeyManagementServiceClient(connection)
 	return sut, client, nil
 }
 
-func runGRPCTest(l Logger, client k8spb.KMSServiceClient, plainText []byte) {
+func runGRPCTest(l Logger, client k8spb.KeyManagementServiceClient, plainText []byte) {
 	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: plainText}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
@@ -226,4 +227,3 @@ func contains(s []string, e string) bool {
 	}
 	return false
 }
-
