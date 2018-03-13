@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	projectID        = "alextc-k8s-lab"
-	locationID       = "global"
-	keyRingID        = "kms-plugin-test-ring"
-	keyID            = "kms-plugin-test-key"
+	projectID        = "cloud-kms-lab"
+	locationID       = "us-central1"
+	keyRingID        = "ring-01"
+	keyID            = "key-01"
 	pathToUnixSocket = "/tmp/test.socket"
 )
 
