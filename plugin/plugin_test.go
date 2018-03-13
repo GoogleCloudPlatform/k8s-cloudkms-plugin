@@ -30,10 +30,7 @@ import (
 )
 
 const (
-	projectID        = "cloud-kms-lab"
-	locationID       = "us-central1"
-	keyRingID        = "ring-01"
-	keyID            = "key-01"
+	keyURI           = "projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01"
 	pathToUnixSocket = "/tmp/test.socket"
 )
 
@@ -48,7 +45,7 @@ type Logger interface {
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	sut, err := New(keyURI, pathToUnixSocket)
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -74,7 +71,7 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptionError(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	sut, err := New(keyURI, pathToUnixSocket)
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -120,7 +117,7 @@ func BenchmarkRPC(b *testing.B) {
 }
 
 func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
-	sut, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	sut, err := New(keyURI, pathToUnixSocket)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
@@ -188,7 +185,7 @@ func printMetrics(l Logger) error {
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	plugin, err := New(keyURI, pathToUnixSocket)
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -205,7 +202,7 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin, err := New(projectID, locationID, keyRingID, keyID, pathToUnixSocket)
+	plugin, err := New(keyURI, pathToUnixSocket)
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}

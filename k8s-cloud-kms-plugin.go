@@ -37,16 +37,14 @@ var (
 	healthzPort = flag.String("healthz-addr", ":8082", "Address at which to publish healthz")
 	healthzPath = flag.String("healthz-path", "/healthz", "Path at which to publish healthz")
 
-	projectID  = flag.String("project-id", "", "Cloud project where KMS key-ring is hosted")
-	locationID = flag.String("location-id", "global", "Location of the key-ring")
-	keyRingID  = flag.String("key-ring-id", "", "ID of the key-ring where keys are stored")
-	keyID      = flag.String("key-id", "", "Id of the key use for crypto operations")
-
+	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/tmp/kms-plugin.socket", "Full path to Unix socket that is used for communicating with KubeAPI Server")
 )
 
 func main() {
 	flag.Parse()
+
+	// TODO: Add regex validation for keyURI: projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s
 
 	glog.Infof("Starting cloud KMS gRPC Plugin.")
 
@@ -63,7 +61,7 @@ func main() {
 		glog.Fatal(http.ListenAndServe(*metricsPort, nil))
 	}()
 
-	kmsPlugin, err := plugin.New(*projectID, *locationID, *keyRingID, *keyID, *pathToUnixSocket)
+	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket)
 	if err != nil {
 		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}

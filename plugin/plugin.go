@@ -56,7 +56,7 @@ type Plugin struct {
 	*grpc.Server
 }
 
-func New(projectID, locationID, keyRingID, keyID, pathToUnixSocketFile string) (*Plugin, error) {
+func New(keyURI, pathToUnixSocketFile string) (*Plugin, error) {
 	ctx := context.Background()
 	client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
 	if err != nil {
@@ -68,12 +68,9 @@ func New(projectID, locationID, keyRingID, keyID, pathToUnixSocketFile string) (
 		return nil, fmt.Errorf("failed to instantiate cloud kms client: %v", err)
 	}
 
-	keyUri := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s",
-		projectID, locationID, keyRingID, keyID)
-
 	plugin := new(Plugin)
 	plugin.keys = kmsClient.Projects.Locations.KeyRings.CryptoKeys
-	plugin.keyURI = keyUri
+	plugin.keyURI = keyURI
 	plugin.pathToUnixSocket = pathToUnixSocketFile
 	return plugin, nil
 }
