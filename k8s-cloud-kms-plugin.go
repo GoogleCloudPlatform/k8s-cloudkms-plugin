@@ -23,12 +23,17 @@ import (
 	"path/filepath"
 	"time"
 
+	"regexp"
+
 	"github.com/golang/glog"
 	"github.com/immutablet/k8s-cloudkms-plugin/plugin"
 	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/context"
 )
+
+// TODO: Improve regex (ex. project can only start with a letter).
+const KeyURIPattern = `^projects\/[-a-zA-Z0-9_]*\/locations\/[-a-zA-Z0-9_]*\/keyRings\/[-a-zA-Z0-9_]*\/cryptoKeys\/[-a-zA-Z0-9_]*`
 
 var (
 	metricsPort = flag.String("metrics-addr", ":8081", "Address at which to publish metrics")
@@ -44,12 +49,20 @@ var (
 func main() {
 	flag.Parse()
 
-	// TODO: Add regex validation for keyURI: projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s
+	keyURIPattern, err := regexp.Compile(KeyURIPattern)
+	if err != nil {
+		glog.Fatalf("Failed to compile keyURI regexp patter %s", keyURIPattern)
+	}
+
+	matched := keyURIPattern.MatchString(*keyURI)
+	if !matched {
+		glog.Fatalf("Supplied key-uri flag failed to match the expected regex pattern of %s", KeyURIPattern)
+	}
 
 	glog.Infof("Starting cloud KMS gRPC Plugin.")
 
 	socketDir := filepath.Dir(*pathToUnixSocket)
-	_, err := os.Stat(socketDir)
+	_, err = os.Stat(socketDir)
 	glog.Infof("Unix Socket directory is %s", socketDir)
 	if err != nil && os.IsNotExist(err) {
 		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
@@ -82,7 +95,7 @@ func main() {
 		glog.Fatal(http.ListenAndServe(*healthzPort, nil))
 	}()
 
-	glog.Infof("About to server gRPC")
+	glog.Infof("About to serve gRPC")
 
 	err = kmsPlugin.Serve(kmsPlugin.Listener)
 	if err != nil {
