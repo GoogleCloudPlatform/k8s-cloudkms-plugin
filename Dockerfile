@@ -42,4 +42,3 @@ COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 #ENV GOOGLE_APPLICATION_CREDENTIALS=/$test_service_account_key
 #CMD ["/k8s-cloud-kms-plugin", "--key-uri=$kms_key_uri", "--path-to-unix-socket=$socket_path", "--logtostderr", "2>&1"]
 
-

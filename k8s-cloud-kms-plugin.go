@@ -20,7 +20,9 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"regexp"
@@ -97,10 +99,22 @@ func main() {
 
 	glog.Infof("About to serve gRPC")
 
-	err = kmsPlugin.Serve(kmsPlugin.Listener)
-	if err != nil {
-		glog.Fatalf("failed to serve gRPC, %v", err)
-	}
+	go func() {
+		err = kmsPlugin.Serve(kmsPlugin.Listener)
+		if err != nil {
+			glog.Fatalf("failed to serve gRPC, %v", err)
+		}
+	}()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-signals
+
+	glog.Infof("Captured %v", sig)
+	glog.Infof("Shutting down server")
+	kmsPlugin.GracefulStop()
+	glog.Infof("Exiting...")
+	os.Exit(0)
 }
 
 func mustPingKMS(kms *plugin.Plugin) {
