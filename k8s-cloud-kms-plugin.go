@@ -44,39 +44,20 @@ var (
 	healthzPort = flag.String("healthz-addr", ":8082", "Address at which to publish healthz")
 	healthzPath = flag.String("healthz-path", "/healthz", "Path at which to publish healthz")
 
+	gceConf          = flag.String("gce-cloud-config=", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/tmp/kms-plugin.socket", "Full path to Unix socket that is used for communicating with KubeAPI Server")
 )
 
 func main() {
-	flag.Parse()
-
-	keyURIPattern, err := regexp.Compile(KeyURIPattern)
-	if err != nil {
-		glog.Fatalf("Failed to compile keyURI regexp patter %s", keyURIPattern)
-	}
-
-	matched := keyURIPattern.MatchString(*keyURI)
-	if !matched {
-		glog.Fatalf("Supplied key-uri flag failed to match the expected regex pattern of %s", KeyURIPattern)
-	}
-
-	glog.Infof("Starting cloud KMS gRPC Plugin.")
-
-	socketDir := filepath.Dir(*pathToUnixSocket)
-	_, err = os.Stat(socketDir)
-	glog.Infof("Unix Socket directory is %s", socketDir)
-	if err != nil && os.IsNotExist(err) {
-		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
-	}
-	glog.Infof("Communicating with KUBE API via %s", *pathToUnixSocket)
+	mustValidateFlags()
 
 	go func() {
 		http.Handle(*metricsPath, promhttp.Handler())
 		glog.Fatal(http.ListenAndServe(*metricsPort, nil))
 	}()
 
-	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket)
+	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket, *gceConf)
 	if err != nil {
 		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}
@@ -115,6 +96,36 @@ func main() {
 	kmsPlugin.GracefulStop()
 	glog.Infof("Exiting...")
 	os.Exit(0)
+}
+
+func mustValidateFlags() {
+	flag.Parse()
+
+	keyURIPattern, err := regexp.Compile(KeyURIPattern)
+	if err != nil {
+		glog.Fatalf("Failed to compile keyURI regexp patter %s", keyURIPattern)
+	}
+
+	matched := keyURIPattern.MatchString(*keyURI)
+	if !matched {
+		glog.Fatalf("Supplied key-uri flag failed to match the expected regex pattern of %s", KeyURIPattern)
+	}
+
+	socketDir := filepath.Dir(*pathToUnixSocket)
+	_, err = os.Stat(socketDir)
+	glog.Infof("Unix Socket directory is %s", socketDir)
+	if err != nil && os.IsNotExist(err) {
+		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
+	}
+	glog.Infof("Communication between KUBE API and KMS Plugin contaniners will be via %s", *pathToUnixSocket)
+
+	if *gceConf != "" {
+		_, err = os.Stat(*gceConf)
+		if err != nil && os.IsNotExist(err) {
+			glog.Fatalf("GCE Conf: %s does not exist.", *gceConf)
+		}
+		glog.Infof("GCE Config: %s, was provided - assuming running on a Hosted Master.", *gceConf)
+	}
 }
 
 func mustPingKMS(kms *plugin.Plugin) {

@@ -23,7 +23,6 @@ import (
 	"github.com/golang/glog"
 
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 
 	"net"
 	"time"
@@ -56,16 +55,15 @@ type Plugin struct {
 	*grpc.Server
 }
 
-func New(keyURI, pathToUnixSocketFile string) (*Plugin, error) {
-	ctx := context.Background()
-	client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
+func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
+	httpClient, err := newHTTPClient(gceConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate cloud sdk client: %v", err)
+		return nil, fmt.Errorf("failed to instantiate http httpClient: %v", err)
 	}
 
-	kmsClient, err := cloudkms.New(client)
+	kmsClient, err := cloudkms.New(httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate cloud kms client: %v", err)
+		return nil, fmt.Errorf("failed to instantiate cloud kms httpClient: %v", err)
 	}
 
 	plugin := new(Plugin)

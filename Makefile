@@ -17,6 +17,8 @@ all: build
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
 REGISTRY = gcr.io/cloud-kms-lab
 IMAGE = k8s-cloud-kms-plugin
+TEST_IMAGE = k8s-cloud-kms-plugin-test
+TEST_DOCKER_FILE = DockerfileTestCases
 TAG = v0.1.1
 BIN = k8s-cloud-kms-plugin
 PROJECT = alextc-k8s-lab
@@ -25,21 +27,23 @@ MASTER = kubernetes-master
 
 deps:
 	go get github.com/tools/godep
-	godep save
 
 build: clean deps
-	$(ENVVAR) godep go test ./...
-	$(ENVVAR) godep go build -o $(BIN)
-	$(ENVVAR) godep go test ./plugin -c
+	$(ENVVAR) go test ./...
+	$(ENVVAR) go build -o $(BIN)
+	$(ENVVAR) go test ./plugin -c
 
 container: build
 	docker build --pull --no-cache -t ${REGISTRY}/$(IMAGE):$(TAG) .
+
+test_container: build
+	docker build --pull --no-cache -f $(TEST_DOCKER_FILE) -t ${REGISTRY}/$(TEST_IMAGE):$(TAG) .
 
 push: container
 	gcloud docker -- push ${REGISTRY}/$(IMAGE):$(TAG)
 
 copy: push
-    gcloud compute scp kube-apiserver.manifest $(MASTER):/home/alextc --zone $(ZONE)
+	gcloud compute scp kube-apiserver.manifest $(MASTER):/home/alextc --zone $(ZONE)
 
 clean:
 	rm -f $(BIN)
