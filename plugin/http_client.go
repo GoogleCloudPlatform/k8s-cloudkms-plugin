@@ -41,29 +41,33 @@ type TokenConfig struct {
 }
 
 func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
-	if pathToGCEConf == "" {
-		ctx := context.Background()
-		client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
+	if pathToGCEConf != "" {
+		r, err := os.Open(pathToGCEConf)
 		if err != nil {
-			return nil, fmt.Errorf("failed to instantiate cloud sdk client: %v", err)
+			return nil, fmt.Errorf("failed to open GCE Config: %s", pathToGCEConf)
 		}
-		return client, nil
+
+		c, err := readConfig(r)
+		if err != nil {
+			return nil, err
+		}
+
+		glog.Infof("Since TokenConfig does not contain TokenURI assuming that running on GCE (ex. via kube-up.sh)")
+		if (TokenConfig{} == *c) {
+			return getDefaultClient()
+		}
+
+		// Running on GKE Hosted Master
+		glog.Infof("Got TokenURI:%s and TokenBody:%s does - assuming that running on a Hosted Master - GKE.")
+
+		a := gce.NewAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
+		// TODO: Do I need to call a.Token to get access token?
+
+		return oauth2.NewClient(oauth2.NoContext, a), nil
 	}
 
-	r, err := os.Open(pathToGCEConf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open GCE Config: %s", pathToGCEConf)
-	}
-
-	c, err := readConfig(r)
-	if err != nil {
-		return nil, err
-	}
-
-	a := gce.NewAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
-	// TODO: Do I need to call a.Token to get access token?
-
-	return oauth2.NewClient(oauth2.NoContext, a), nil
+	glog.Infof("Path to gce.conf was not supplied - assuming that need to rely on exported service account key.")
+	return getDefaultClient()
 }
 
 func readConfig(reader io.Reader) (*TokenConfig, error) {
@@ -73,4 +77,13 @@ func readConfig(reader io.Reader) (*TokenConfig, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func getDefaultClient() (*http.Client, error) {
+	ctx := context.Background()
+	client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate cloud sdk client: %v", err)
+	}
+	return client, nil
 }
