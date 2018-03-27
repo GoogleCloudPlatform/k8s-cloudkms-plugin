@@ -44,7 +44,7 @@ var (
 	healthzPort = flag.String("healthz-addr", ":8082", "Address at which to publish healthz")
 	healthzPath = flag.String("healthz-path", "/healthz", "Path at which to publish healthz")
 
-	gceConf          = flag.String("gce-config=", "", "Path to gce.conf, if running on GKE.")
+	gceConf          = flag.String("gce-config", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/tmp/kms-plugin.socket", "Full path to Unix socket that is used for communicating with KubeAPI Server")
 )
@@ -124,7 +124,7 @@ func mustValidateFlags() {
 		if err != nil && os.IsNotExist(err) {
 			glog.Fatalf("GCE Conf: %s does not exist.", *gceConf)
 		}
-		glog.Infof("GCE Config: %s, was provided - assuming running on a Hosted Master.", *gceConf)
+		glog.Infof("Using GCE Config: %s.", *gceConf)
 	}
 }
 

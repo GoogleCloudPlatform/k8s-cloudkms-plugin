@@ -17,11 +17,17 @@ ENCRYPTION_PROVIDER_VOL="{ \"name\": \"encryptionconfig\", \"hostPath\": {\"path
 KMS_KEY_URI="projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01"
 KMS_PATH_TO_SOCKET="${KMS_SOCKET_DIR}/socket.sock"
 
+cloud_config_mount="{\"name\": \"cloudconfigmount\",\"mountPath\": \"/etc/gce.conf\", \"readOnly\": true}"
+gce_conf_path="/etc/gce.conf"
+
 # TODO: Ideally, I would like to keep multi-line formatting of the container json (by removing | tr "\n" "\\n"), but this breaks sed.
 KMS_PLUGIN_CONTAINER=$(echo $(sed " {
     s@{{kms_key_uri}}@${KMS_KEY_URI}@
+    s@{{gce_conf_path}}@${gce_conf_path}@
+
     s@{{kms_path_to_socket}}@${KMS_PATH_TO_SOCKET}@
     s@{{kms_socket_mount}}@${KMS_SOCKET_MNT}@
+    s@{{cloud_config_mount}}@${cloud_config_mount}@
 } " ${KMS_PLUGIN_CONTAINER_TEMPLATE}) | tr "\n" "\\n")
 
 sed " {

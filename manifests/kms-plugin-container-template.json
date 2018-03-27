@@ -1,8 +1,8 @@
 {
   "name": "kms-plugin",
   "image": "gcr.io/cloud-kms-lab/k8s-cloud-kms-plugin:v0.1.1",
-  "command": ["/k8s-cloud-kms-plugin", "--key-uri={{kms_key_uri}}", "--path-to-unix-socket={{kms_path_to_socket}}", "--gce-conf=/etc/gce.conf", "--logtostderr", "2>\&1"],
+  "command": ["/k8s-cloud-kms-plugin", "--key-uri={{kms_key_uri}}", "--path-to-unix-socket={{kms_path_to_socket}}", "--gce-conf={{gce_conf_path}}", "--logtostderr", "2>\&1"],
   "livenessProbe": { "httpGet": {"host": "127.0.0.1", "port": 8081, "path": "/healthz"}, "initialDelaySeconds": 3, "timeoutSeconds": 3},
   "ports":[{ "name": "local", "containerPort": 8081, "hostPort": 8081}],
-  "volumeMounts": [{{kms_socket_mount}}, {"name": "cloudconfigmount", "mountPath": "/etc/gce.conf", "readOnly": true}]
+  "volumeMounts": [{{cloud_config_mount}}, {{kms_socket_mount}}]
 }
