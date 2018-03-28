@@ -52,16 +52,20 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 			return nil, err
 		}
 
-		glog.Infof("Since TokenConfig does not contain TokenURI assuming that running on GCE (ex. via kube-up.sh)")
 		if (TokenConfig{} == *c) {
+			glog.Infof("Since TokenConfig contains neither TokenURI nor TokenBody assuming that running on GCE (ex. via kube-up.sh)")
 			return getDefaultClient()
 		}
 
 		// Running on GKE Hosted Master
-		glog.Infof("Got TokenURI:%s and TokenBody:%s does - assuming that running on a Hosted Master - GKE.")
-
+		glog.Infof("TokenURI:%s, TokenBody:%s - assuming that running on a Hosted Master - GKE.", c.Global.TokenURL, c.Global.TokenBody)
 		a := gce.NewAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
-		// TODO: Do I need to call a.Token to get access token?
+
+		// TODO: Do I need to call a.Token to get access token here?
+		if _, err := a.Token(); err != nil {
+			glog.Errorf("error fetching initial token: %v", err)
+			return nil, err
+		}
 
 		return oauth2.NewClient(oauth2.NoContext, a), nil
 	}
