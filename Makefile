@@ -15,7 +15,7 @@
 all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-REGISTRY = gcr.io/cloud-kms-lab
+REGISTRY = gcr.io/google-containers
 IMAGE = k8s-cloud-kms-plugin
 TEST_IMAGE = k8s-cloud-kms-plugin-test
 TEST_DOCKER_FILE = DockerfileTestCases

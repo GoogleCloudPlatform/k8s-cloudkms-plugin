@@ -27,11 +27,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
-)
-
-const (
-	keyURI           = "projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01"
-	pathToUnixSocket = "/tmp/test.socket"
+	"net/http"
+	"io/ioutil"
+	"strings"
+	"time"
 )
 
 // Logger allows t.Testing and b.Testing to be passed to a method that executes testing logic.
@@ -42,10 +41,26 @@ type Logger interface {
 	Logf(format string, args ...interface{})
 }
 
+func TestE2E(t *testing.T) {
+	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	if err != nil {
+		t.Fatalf("failed to instantiate plugin, %v", err)
+	}
+	sut.MustServeKMSRequests(HealthzPath, HealthzPort, MetricsPath, MetricsPort)
+
+	time.Sleep(1 * time.Millisecond)
+
+	mustGetHttpBody(t, HealthzPort, HealthzPath, "ok")
+	mustGetHttpBody(t, MetricsPort, MetricsPath, metricsOfInterest[0])
+
+	mustGatherMetrics(t)
+	printMetrics(t)
+}
+
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(keyURI, pathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -71,7 +86,7 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptionError(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(keyURI, pathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -117,18 +132,18 @@ func BenchmarkRPC(b *testing.B) {
 }
 
 func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
-	sut, err := New(keyURI, pathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
-	err = sut.SetupRPCServer()
+	err = sut.setupRPCServer()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to start gRPC Server, %v", err)
 	}
 
 	go sut.Server.Serve(sut.Listener)
 
-	connection, err := sut.NewUnixSocketConnection()
+	connection, err := sut.newUnixSocketConnection()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
 	}
@@ -163,13 +178,6 @@ func printMetrics(l Logger) error {
 		return fmt.Errorf("failed to gather metrics: %s", err)
 	}
 
-	metricsOfInterest := []string{
-		"cloudkms_kms_client_operation_latency_microseconds",
-		"go_memstats_alloc_bytes_total",
-		"go_memstats_frees_total",
-		"process_cpu_seconds_total",
-	}
-
 	for _, mf := range metrics {
 		// l.Logf("%s", *mf.Name)
 		if contains(metricsOfInterest, *mf.Name) {
@@ -182,10 +190,30 @@ func printMetrics(l Logger) error {
 	return nil
 }
 
+func mustGatherMetrics(l Logger)  {
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		l.Fatalf("failed to gather metrics: %s", err)
+	}
+
+	expectedCount := len(metricsOfInterest)
+	actualCount := 0
+
+	for _, mf := range metrics {
+		if contains(metricsOfInterest, *mf.Name) {
+			actualCount += 1
+		}
+	}
+
+	if expectedCount != actualCount {
+		l.Fatalf("Expected %d metrics, but got %d", expectedCount, actualCount)
+	}
+}
+
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin, err := New(keyURI, pathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -202,7 +230,7 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin, err := New(keyURI, pathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -223,4 +251,18 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func mustGetHttpBody(l Logger, port, path, expect string) {
+	resp, err := http.Get( fmt.Sprintf("http://127.0.0.1%s%s", port, path))
+	if err != nil {
+		l.Fatalf("Failed to reach %s%s: %v", port, path, err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if ! strings.Contains(string(body), expect) {
+		l.Fatalf("Expected %s, but got %s", expect, string(body))
+	}
+
 }
