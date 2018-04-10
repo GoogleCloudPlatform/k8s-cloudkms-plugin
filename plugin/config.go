@@ -1,11 +1,12 @@
 package plugin
 
 const  (
-	MetricsPort = ":8081"
-	MetricsPath = "/metrics"
 
-	HealthzPort = ":8082"
+	HealthzPort = ":8081"
 	HealthzPath = "/healthz"
+
+	MetricsPort = ":8082"
+	MetricsPath = "/metrics"
 
 	PathToUnixSocket = "/tmp/kms-plugin.socket"
 

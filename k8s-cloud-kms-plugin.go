@@ -72,7 +72,7 @@ func mustValidateFlags() {
 
 	matched := keyURIPattern.MatchString(*keyURI)
 	if !matched {
-		glog.Fatalf("Supplied key-uri flag failed to match the expected regex pattern of %s", plugin.KeyURIPattern)
+		glog.Fatalf("Supplied key-uri flag: %s failed to match the expected regex pattern of %s", *keyURI, plugin.KeyURIPattern)
 	}
 
 	socketDir := filepath.Dir(*pathToUnixSocket)
@@ -81,7 +81,7 @@ func mustValidateFlags() {
 	if err != nil && os.IsNotExist(err) {
 		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
 	}
-	glog.Infof("Communication between KUBE API and KMS Plugin contaniners will be via %s", *pathToUnixSocket)
+	glog.Infof("Communication between KUBE API and KMS Plugin containers will be via %s", *pathToUnixSocket)
 
 	if *gceConf != "" {
 		_, err = os.Stat(*gceConf)
