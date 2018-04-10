@@ -27,13 +27,15 @@ import (
 )
 
 const (
-	cloudKMSSubsystem = "cloudkms"
+	namespace = "apiserver"
+	subsystem = "cloudkms"
 )
 
 var (
 	CloudKMSOperationalLatencies = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Subsystem: cloudKMSSubsystem,
+			Namespace: namespace,
+			Subsystem: subsystem,
 			Name:      "kms_client_operation_latency_microseconds",
 			Help:      "Latency in microseconds of cloud kms operations.",
 		},
@@ -42,7 +44,8 @@ var (
 
 	CloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: cloudKMSSubsystem,
+			Namespace: namespace,
+			Subsystem: subsystem,
 			Name:      "kms_client_operation_failures_total",
 			Help:      "Total number of failed kms operations.",
 		},
