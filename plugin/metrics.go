@@ -28,7 +28,7 @@ import (
 
 const (
 	namespace = "apiserver"
-	subsystem = "cloudkms"
+	subsystem = "kms"
 )
 
 var (
@@ -36,8 +36,8 @@ var (
 		prometheus.SummaryOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "kms_client_operation_latency_microseconds",
-			Help:      "Latency in microseconds of cloud kms operations.",
+			Name:      "kms_plugin_roundtrip_latencies",
+			Help:      "Latencies in microseconds of cloud kms operations.",
 		},
 		[]string{"operation_type"},
 	)
@@ -46,7 +46,7 @@ var (
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "kms_client_operation_failures_total",
+			Name:      "kms_plugin_failures_count",
 			Help:      "Total number of failed kms operations.",
 		},
 		[]string{"operation_type"},
