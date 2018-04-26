@@ -134,6 +134,7 @@ func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort,  metricsPath, me
 	go g.mustServeRPC()
 
 	// Giving some time for kmsPlugin to start Serving.
+	// TODO: Must be a better way then to sleep.
 	time.Sleep(3 * time.Millisecond)
 	g.mustPingRPC()
 
@@ -185,6 +186,7 @@ func (g *Plugin) mustServeRPC() {
 	if err != nil {
 		glog.Fatalf("failed to serve gRPC, %v", err)
 	}
+	glog.Infof("Serving gRPC")
 }
 
 func (g *Plugin) mustPingKMS() {

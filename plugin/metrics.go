@@ -37,7 +37,7 @@ var (
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "kms_plugin_roundtrip_latencies",
-			Help:      "Latencies in microseconds of cloud kms operations.",
+			Help:      "Latencies in milliseconds of cloud kms operations.",
 		},
 		[]string{"operation_type"},
 	)
@@ -62,11 +62,11 @@ func RegisterMetrics() {
 }
 
 func RecordCloudKMSOperation(operationType string, start time.Time) {
-	CloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMicroseconds(start))
+	CloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
 }
 
-func sinceInMicroseconds(start time.Time) float64 {
-	return float64(time.Since(start).Nanoseconds() / time.Microsecond.Nanoseconds())
+func sinceInMilliseconds(start time.Time) float64 {
+	return float64(time.Since(start).Nanoseconds() / int64(time.Millisecond))
 }
 
 func MustServeHealthz(healthzPath , healthzPort string) {
