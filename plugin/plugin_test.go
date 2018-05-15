@@ -244,15 +244,6 @@ func ExampleDecrypt() {
 	fmt.Printf("Plain: %s", string(decryptResponse.Plain))
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 func mustGetHttpBody(l Logger, port, path, expect string) {
 	resp, err := http.Get( fmt.Sprintf("http://127.0.0.1%s%s", port, path))
 	if err != nil {

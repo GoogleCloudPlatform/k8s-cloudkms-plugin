@@ -19,22 +19,25 @@ package plugin
 import (
 	"encoding/base64"
 	"fmt"
+	"net"
+	"os"
+	"time"
 
 	"github.com/golang/glog"
 
 	"golang.org/x/net/context"
-
-	"net"
-	"time"
-
-	"os"
-
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 	"golang.org/x/sys/unix"
+
 	cloudkms "google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
+
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 )
 
+const (
+	encryptIAMPermission = "cloudkms.cryptoKeyVersions.useToEncrypt"
+	decryptIAMPermission = "cloudkms.cryptoKeyVersions.useToDecrypt"
+)
 
 func init() {
 	RegisterMetrics()
@@ -123,7 +126,8 @@ func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k
 	return &k8spb.DecryptResponse{Plain: []byte(plain)}, nil
 }
 
-func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort,  metricsPath, metricsPort string) {
+func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort, metricsPath, metricsPort string) {
+	g.mustHaveIAMPermissions()
 	g.mustPingKMS()
 
 	err := g.setupRPCServer()
@@ -189,6 +193,30 @@ func (g *Plugin) mustServeRPC() {
 	glog.Infof("Serving gRPC")
 }
 
+func (g *Plugin) mustHaveIAMPermissions() {
+	glog.Infof("Validating IAM Permissions on %s", g.keyURI)
+
+	req := &cloudkms.TestIamPermissionsRequest{
+		Permissions: []string{encryptIAMPermission, decryptIAMPermission},
+	}
+
+	resp, err := g.keys.TestIamPermissions(g.keyURI, req).Do()
+
+	if err != nil {
+		glog.Fatalf("Failed to test IAM Permissions on %s, %v", g.keyURI, err)
+	}
+
+	if ! contains(resp.Permissions, encryptIAMPermission) {
+		glog.Fatalf("Caller missing %s IAM Permission on %s", encryptIAMPermission, g.keyURI)
+	}
+
+	if ! contains(resp.Permissions, decryptIAMPermission) {
+		glog.Fatalf("Caller missing %s IAM Permission on %s", decryptIAMPermission, g.keyURI)
+	}
+
+	glog.Infof("Successfully validated IAM Permissions on %s.", g.keyURI)
+}
+
 func (g *Plugin) mustPingKMS() {
 	plainText := []byte("secret")
 
@@ -246,3 +274,11 @@ func (g *Plugin) mustPingRPC() {
 }
 
 
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
