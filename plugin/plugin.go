@@ -49,6 +49,7 @@ type Plugin struct {
 	pathToUnixSocket string
 	net.Listener
 	*grpc.Server
+	*Validator
 }
 
 func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
@@ -66,6 +67,7 @@ func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
 	plugin.keys = kmsClient.Projects.Locations.KeyRings.CryptoKeys
 	plugin.keyURI = keyURI
 	plugin.pathToUnixSocket = pathToUnixSocketFile
+	plugin.Validator = NewValidator(plugin)
 	return plugin, nil
 }
 
@@ -81,6 +83,33 @@ func (g *Plugin) Stop() {
 
 func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k8spb.VersionResponse, error) {
 	return &k8spb.VersionResponse{Version: APIVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
+}
+
+func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort, metricsPath, metricsPort string) {
+	g.mustValidatePrerequisites()
+
+	err := g.setupRPCServer()
+	if err != nil {
+		glog.Fatalf("failed to setup gRPC Server, %v", err)
+	}
+
+	go g.mustServeRPC()
+
+	// Giving some time for kmsPlugin to start Serving.
+	// TODO: Must be a better way then to sleep.
+	time.Sleep(3 * time.Millisecond)
+	g.mustPingRPC()
+
+	go MustServeHealthz(healthzPath, healthzPort)
+	go MustServeMetrics(metricsPath, metricsPort)
+}
+
+func (g *Plugin) mustServeRPC() {
+	err := g.Serve(g.Listener)
+	if err != nil {
+		glog.Fatalf("failed to serve gRPC, %v", err)
+	}
+	glog.Infof("Serving gRPC")
 }
 
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {
@@ -126,26 +155,6 @@ func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k
 	return &k8spb.DecryptResponse{Plain: []byte(plain)}, nil
 }
 
-func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort, metricsPath, metricsPort string) {
-	g.mustHaveIAMPermissions()
-	g.mustPingKMS()
-
-	err := g.setupRPCServer()
-	if err != nil {
-		glog.Fatalf("failed to setup gRPC Server, %v", err)
-	}
-
-	go g.mustServeRPC()
-
-	// Giving some time for kmsPlugin to start Serving.
-	// TODO: Must be a better way then to sleep.
-	time.Sleep(3 * time.Millisecond)
-	g.mustPingRPC()
-
-	go MustServeHealthz(healthzPath, healthzPort)
-	go MustServeMetrics(metricsPath, metricsPort)
-}
-
 func (g *Plugin) setupRPCServer() error {
 	if err := g.cleanSockFile(); err != nil {
 		return err
@@ -183,102 +192,4 @@ func (g *Plugin) newUnixSocketConnection() (*grpc.ClientConn, error) {
 	}
 
 	return connection, nil
-}
-
-func (g *Plugin) mustServeRPC() {
-	err := g.Serve(g.Listener)
-	if err != nil {
-		glog.Fatalf("failed to serve gRPC, %v", err)
-	}
-	glog.Infof("Serving gRPC")
-}
-
-func (g *Plugin) mustHaveIAMPermissions() {
-	glog.Infof("Validating IAM Permissions on %s", g.keyURI)
-
-	req := &cloudkms.TestIamPermissionsRequest{
-		Permissions: []string{encryptIAMPermission, decryptIAMPermission},
-	}
-
-	resp, err := g.keys.TestIamPermissions(g.keyURI, req).Do()
-
-	if err != nil {
-		glog.Fatalf("Failed to test IAM Permissions on %s, %v", g.keyURI, err)
-	}
-
-	if ! contains(resp.Permissions, encryptIAMPermission) {
-		glog.Fatalf("Caller missing %s IAM Permission on %s", encryptIAMPermission, g.keyURI)
-	}
-
-	if ! contains(resp.Permissions, decryptIAMPermission) {
-		glog.Fatalf("Caller missing %s IAM Permission on %s", decryptIAMPermission, g.keyURI)
-	}
-
-	glog.Infof("Successfully validated IAM Permissions on %s.", g.keyURI)
-}
-
-func (g *Plugin) mustPingKMS() {
-	plainText := []byte("secret")
-
-	glog.Infof("Pinging KMS.")
-
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
-	encryptResponse, err := g.Encrypt(context.Background(), &encryptRequest)
-
-	if err != nil {
-		glog.Fatalf("failed to ping KMS: %v", err)
-	}
-
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
-	decryptResponse, err := g.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		glog.Fatalf("failed to ping KMS: %v", err)
-	}
-
-	if string(decryptResponse.Plain) != string(plainText) {
-		glog.Fatalf("failed to ping kms, expected secret, but got %s", string(decryptResponse.Plain))
-	}
-
-	glog.Infof("Successfully pinged KMS.")
-}
-
-func (g *Plugin) mustPingRPC() {
-	glog.Infof("Pinging KMS gRPC.")
-
-	connection, err := g.newUnixSocketConnection()
-	if err != nil {
-		glog.Fatalf("failed to open unix socket, %v", err)
-	}
-	client := k8spb.NewKeyManagementServiceClient(connection)
-
-	plainText := []byte("secret")
-
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
-	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
-
-	if err != nil {
-		glog.Fatalf("failed to ping KMS: %v", err)
-	}
-
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
-	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		glog.Fatalf("failed to ping KMS gRPC: %v", err)
-	}
-
-	if string(decryptResponse.Plain) != string(plainText) {
-		glog.Fatalf("failed to ping KMS gRPC, expected secret, but got %s", string(decryptResponse.Plain))
-	}
-
-	glog.Infof("Successfully pinged gRPC KMS.")
-}
-
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
