@@ -24,14 +24,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sys/unix"
 
 	cloudkms "google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
-
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 )
 
 const (
@@ -49,11 +48,9 @@ type Plugin struct {
 	pathToUnixSocket string
 	net.Listener
 	*grpc.Server
-	*Validator
-	*Metrics
 }
 
-func New(keyURI, pathToUnixSocketFile, gceConfig string, healthzPath, healthzPort, metricsPath, metricsPort string) (*Plugin, error) {
+func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
 	httpClient, err := newHTTPClient(gceConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate http httpClient: %v", err)
@@ -68,8 +65,6 @@ func New(keyURI, pathToUnixSocketFile, gceConfig string, healthzPath, healthzPor
 	plugin.keys = kmsClient.Projects.Locations.KeyRings.CryptoKeys
 	plugin.keyURI = keyURI
 	plugin.pathToUnixSocket = pathToUnixSocketFile
-	plugin.Validator = NewValidator(plugin)
-	plugin.Metrics = NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort)
 	return plugin, nil
 }
 
@@ -87,8 +82,7 @@ func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k
 	return &k8spb.VersionResponse{Version: APIVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
 }
 
-func (g *Plugin) MustServeKMSRequests() {
-	g.mustValidatePrerequisites()
+func (g *Plugin) mustServeKMSRequests() {
 
 	err := g.setupRPCServer()
 	if err != nil {
@@ -96,14 +90,6 @@ func (g *Plugin) MustServeKMSRequests() {
 	}
 
 	go g.mustServeRPC()
-
-	// Giving some time for kmsPlugin to start Serving.
-	// TODO: Must be a better way than to sleep.
-	time.Sleep(3 * time.Millisecond)
-
-	g.mustPingRPC()
-
-	g.MustServeMetrics()
 }
 
 func (g *Plugin) mustServeRPC() {

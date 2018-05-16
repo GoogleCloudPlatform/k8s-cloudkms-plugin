@@ -44,12 +44,13 @@ var (
 func main() {
 	mustValidateFlags()
 
-	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket, *gceConf, *healthzPath, *healthzPort, *metricsPath, *metricsPort)
+	p, err := plugin.New(*keyURI, *pathToUnixSocket, *gceConf)
 	if err != nil {
 		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}
 
-	kmsPlugin.MustServeKMSRequests()
+	o := plugin.NewOrchestrator(p, *healthzPath, *healthzPort, *metricsPath, *metricsPort)
+	o.Run()
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -57,7 +58,7 @@ func main() {
 
 	glog.Infof("Captured %v", sig)
 	glog.Infof("Shutting down server")
-	kmsPlugin.GracefulStop()
+	p.GracefulStop()
 	glog.Infof("Exiting...")
 	os.Exit(0)
 }
