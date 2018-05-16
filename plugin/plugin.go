@@ -50,9 +50,10 @@ type Plugin struct {
 	net.Listener
 	*grpc.Server
 	*Validator
+	*Metrics
 }
 
-func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
+func New(keyURI, pathToUnixSocketFile, gceConfig string, healthzPath, healthzPort, metricsPath, metricsPort string) (*Plugin, error) {
 	httpClient, err := newHTTPClient(gceConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate http httpClient: %v", err)
@@ -68,6 +69,7 @@ func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
 	plugin.keyURI = keyURI
 	plugin.pathToUnixSocket = pathToUnixSocketFile
 	plugin.Validator = NewValidator(plugin)
+	plugin.Metrics = NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort)
 	return plugin, nil
 }
 
@@ -85,7 +87,7 @@ func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k
 	return &k8spb.VersionResponse{Version: APIVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
 }
 
-func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort, metricsPath, metricsPort string) {
+func (g *Plugin) MustServeKMSRequests() {
 	g.mustValidatePrerequisites()
 
 	err := g.setupRPCServer()
@@ -96,12 +98,12 @@ func (g *Plugin) MustServeKMSRequests(healthzPath, healthzPort, metricsPath, met
 	go g.mustServeRPC()
 
 	// Giving some time for kmsPlugin to start Serving.
-	// TODO: Must be a better way then to sleep.
+	// TODO: Must be a better way than to sleep.
 	time.Sleep(3 * time.Millisecond)
+
 	g.mustPingRPC()
 
-	go MustServeHealthz(healthzPath, healthzPort)
-	go MustServeMetrics(metricsPath, metricsPort)
+	g.MustServeMetrics()
 }
 
 func (g *Plugin) mustServeRPC() {

@@ -69,21 +69,42 @@ func sinceInMilliseconds(start time.Time) float64 {
 	return float64(time.Since(start).Nanoseconds() / int64(time.Millisecond))
 }
 
-func MustServeHealthz(healthzPath , healthzPort string) {
+type Metrics struct {
+	healthzPath string
+	healthzPort string
+	metricsPath string
+	metricsPort string
+}
+
+func NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *Metrics {
+	return &Metrics{
+		healthzPath: healthzPath,
+		healthzPort: healthzPort,
+		metricsPath: metricsPath,
+		metricsPort: metricsPort,
+	}
+}
+
+func (m *Metrics) MustServeMetrics() {
+	go m.mustServeHealthz()
+	go m.mustServeMetrics()
+}
+
+func (m *Metrics) mustServeHealthz() {
 	serverHealthz := http.NewServeMux()
-	serverHealthz.HandleFunc(healthzPath, func (w http.ResponseWriter, r *http.Request) {
+	serverHealthz.HandleFunc(m.healthzPath, func (w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
-	glog.Infof("Registering healthz listener at http://localhost:%s%s", healthzPort, healthzPath)
-	glog.Fatal(http.ListenAndServe(healthzPort, serverHealthz))
+	glog.Infof("Registering healthz listener at http://localhost:%s%s", m.healthzPort, m.healthzPath)
+	glog.Fatal(http.ListenAndServe(m.healthzPort, serverHealthz))
 }
 
-func MustServeMetrics(metricsPath, metricsPort string) {
+func (m *Metrics) mustServeMetrics() {
 	serverMetrics := http.NewServeMux()
-	serverMetrics.Handle(metricsPath, promhttp.Handler())
-	glog.Infof("Registering metrics listener at http://localhost:%s%s", metricsPort, metricsPath)
-	glog.Fatal(http.ListenAndServe(metricsPort, serverMetrics))
+	serverMetrics.Handle(m.metricsPath, promhttp.Handler())
+	glog.Infof("Registering metrics listener at http://localhost:%s%s", m.metricsPort, m.metricsPath)
+	glog.Fatal(http.ListenAndServe(m.metricsPort, serverMetrics))
 }
 
 

@@ -42,11 +42,11 @@ type Logger interface {
 }
 
 func TestE2E(t *testing.T) {
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
-	sut.MustServeKMSRequests(HealthzPath, HealthzPort, MetricsPath, MetricsPort)
+	sut.MustServeKMSRequests()
 
 	time.Sleep(1 * time.Millisecond)
 
@@ -60,7 +60,7 @@ func TestE2E(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -86,7 +86,7 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptionError(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -132,7 +132,7 @@ func BenchmarkRPC(b *testing.B) {
 }
 
 func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
@@ -213,7 +213,7 @@ func mustGatherMetrics(l Logger)  {
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -230,7 +230,7 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, PathToUnixSocket, "", HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}

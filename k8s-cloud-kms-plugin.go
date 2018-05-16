@@ -44,12 +44,12 @@ var (
 func main() {
 	mustValidateFlags()
 
-	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket, *gceConf)
+	kmsPlugin, err := plugin.New(*keyURI, *pathToUnixSocket, *gceConf, *healthzPath, *healthzPort, *metricsPath, *metricsPort)
 	if err != nil {
 		glog.Fatalf("failed to instantiate kmsPlugin, %v", err)
 	}
 
-	kmsPlugin.MustServeKMSRequests(*healthzPath, *healthzPort, *metricsPath, *metricsPort)
+	kmsPlugin.MustServeKMSRequests()
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
