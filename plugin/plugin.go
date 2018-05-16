@@ -31,6 +31,7 @@ import (
 
 	cloudkms "google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
+	"strings"
 )
 
 const (
@@ -162,6 +163,12 @@ func (g *Plugin) setupRPCServer() error {
 }
 
 func (g *Plugin) cleanSockFile() error {
+
+	// @ implies the use of Linux socket namespace - no file on disk and nothing to clean-up.
+	if strings.HasPrefix(g.pathToUnixSocket, "@") {
+		return nil
+	}
+
 	err := unix.Unlink(g.pathToUnixSocket)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete the socket file, error: %v", err)

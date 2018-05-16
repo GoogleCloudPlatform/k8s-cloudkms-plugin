@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/immutablet/k8s-cloudkms-plugin/plugin"
+	"strings"
 )
 
 var (
@@ -38,7 +39,7 @@ var (
 
 	gceConf          = flag.String("gce-config", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
-	pathToUnixSocket = flag.String("path-to-unix-socket", plugin.PathToUnixSocket, "Full path to Unix socket that is used for communicating with KubeAPI Server")
+	pathToUnixSocket = flag.String("path-to-unix-socket", "@kms-plugin-socket", "Full path to Unix socket that is used for communicating with KubeAPI Server, or Linux socket namespace object - must start with @")
 )
 
 func main() {
@@ -76,11 +77,15 @@ func mustValidateFlags() {
 		glog.Fatalf("Supplied key-uri flag: %s failed to match the expected regex pattern of %s", *keyURI, plugin.KeyURIPattern)
 	}
 
-	socketDir := filepath.Dir(*pathToUnixSocket)
-	_, err = os.Stat(socketDir)
-	glog.Infof("Unix Socket directory is %s", socketDir)
-	if err != nil && os.IsNotExist(err) {
-		glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
+	// Using an actual socket file instead of in-memory Linux socket namespace object.
+	glog.Infof("Checking socket path %s", *pathToUnixSocket)
+	if ! strings.HasPrefix(*pathToUnixSocket, "@") {
+		socketDir := filepath.Dir(*pathToUnixSocket)
+		_, err = os.Stat(socketDir)
+		glog.Infof("Unix Socket directory is %s", socketDir)
+		if err != nil && os.IsNotExist(err) {
+			glog.Fatalf(" Directory %s portion of path-to-unix-socket flag:%s does not exist.", socketDir, *pathToUnixSocket)
+		}
 	}
 	glog.Infof("Communication between KUBE API and KMS Plugin containers will be via %s", *pathToUnixSocket)
 

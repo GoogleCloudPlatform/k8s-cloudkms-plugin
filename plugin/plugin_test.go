@@ -18,6 +18,7 @@ package plugin
 
 import (
 	"log"
+	"math/rand"
 	"testing"
 
 	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
@@ -42,7 +43,7 @@ type Logger interface {
 }
 
 func TestE2E(t *testing.T) {
-	p, err := New(TestKeyURI, PathToUnixSocket, "")
+	p, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -62,7 +63,7 @@ func TestE2E(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -88,7 +89,7 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptionError(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -134,7 +135,7 @@ func BenchmarkRPC(b *testing.B) {
 }
 
 func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
-	sut, err := New(TestKeyURI, PathToUnixSocket, "")
+	sut, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
@@ -215,7 +216,7 @@ func mustGatherMetrics(l Logger)  {
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -232,7 +233,7 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin, err := New(TestKeyURI, PathToUnixSocket, "")
+	plugin, err := New(TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -257,5 +258,8 @@ func mustGetHttpBody(l Logger, port, path, expect string) {
 	if ! strings.Contains(string(body), expect) {
 		l.Fatalf("Expected %s, but got %s", expect, string(body))
 	}
+}
 
+func getSocketAddress() string{
+	return fmt.Sprintf("@%d", rand.Intn(100000))
 }
