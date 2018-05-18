@@ -18,8 +18,8 @@ package plugin
 
 import (
 	"fmt"
-	"net/http"
 	"io"
+	"net/http"
 	"os"
 
 	"github.com/golang/glog"

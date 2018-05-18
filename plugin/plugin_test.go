@@ -17,22 +17,21 @@ limitations under the License.
 package plugin
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
-	"testing"
-
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
-	"github.com/immutablet/k8s-cloudkms-plugin/tests"
-
-	"fmt"
-	"strconv"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/net/context"
 	"net/http"
-	"io/ioutil"
+	"strconv"
 	"strings"
+	"testing"
 	"time"
+
+	"github.com/immutablet/k8s-cloudkms-plugin/tests"
+	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	"github.com/prometheus/client_golang/prometheus"
+
+	"golang.org/x/net/context"
 )
 
 // Logger allows t.Testing and b.Testing to be passed to a method that executes testing logic.
@@ -194,7 +193,7 @@ func printMetrics(l Logger) error {
 	return nil
 }
 
-func mustGatherMetrics(l Logger)  {
+func mustGatherMetrics(l Logger) {
 	metrics, err := prometheus.DefaultGatherer.Gather()
 	if err != nil {
 		l.Fatalf("failed to gather metrics: %s", err)
@@ -249,18 +248,18 @@ func ExampleDecrypt() {
 }
 
 func mustGetHTTPBody(l Logger, port, path, expect string) {
-	resp, err := http.Get( fmt.Sprintf("http://127.0.0.1%s%s", port, path))
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1%s%s", port, path))
 	if err != nil {
 		l.Fatalf("Failed to reach %s%s: %v", port, path, err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 
-	if ! strings.Contains(string(body), expect) {
+	if !strings.Contains(string(body), expect) {
 		l.Fatalf("Expected %s, but got %s", expect, string(body))
 	}
 }
 
-func getSocketAddress() string{
+func getSocketAddress() string {
 	return fmt.Sprintf("@%d", rand.Intn(100000))
 }

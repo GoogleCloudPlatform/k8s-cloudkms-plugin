@@ -21,13 +21,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"syscall"
-
 	"regexp"
+	"strings"
+	"syscall"
 
 	"github.com/golang/glog"
 	"github.com/immutablet/k8s-cloudkms-plugin/plugin"
-	"strings"
 )
 
 var (
@@ -79,7 +78,7 @@ func mustValidateFlags() {
 
 	// Using an actual socket file instead of in-memory Linux socket namespace object.
 	glog.Infof("Checking socket path %s", *pathToUnixSocket)
-	if ! strings.HasPrefix(*pathToUnixSocket, "@") {
+	if !strings.HasPrefix(*pathToUnixSocket, "@") {
 		socketDir := filepath.Dir(*pathToUnixSocket)
 		_, err = os.Stat(socketDir)
 		glog.Infof("Unix Socket directory is %s", socketDir)

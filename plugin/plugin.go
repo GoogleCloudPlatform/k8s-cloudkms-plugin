@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -31,7 +32,6 @@ import (
 
 	cloudkms "google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
-	"strings"
 )
 
 const (

@@ -17,12 +17,12 @@ limitations under the License.
 package plugin
 
 import (
+	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
 )
 
 const (
@@ -51,7 +51,6 @@ var (
 		[]string{"operation_type"},
 	)
 )
-
 
 func init() {
 	prometheus.MustRegister(cloudKMSOperationalLatencies)
@@ -93,7 +92,7 @@ func (m *metrics) mustServe() {
 
 func (m *metrics) mustServeHealthz() {
 	serverHealthz := http.NewServeMux()
-	serverHealthz.HandleFunc(m.healthzPath, func (w http.ResponseWriter, r *http.Request) {
+	serverHealthz.HandleFunc(m.healthzPath, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
@@ -107,6 +106,3 @@ func (m *metrics) mustServeMetrics() {
 	glog.Infof("Registering metrics listener at http://localhost:%s%s", m.metricsPort, m.metricsPath)
 	glog.Fatal(http.ListenAndServe(m.metricsPort, serverMetrics))
 }
-
-
-

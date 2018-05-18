@@ -1,6 +1,6 @@
 package plugin
 
-const  (
+const (
 
 	// HealthzPort port on which healthz status will be reported.
 	HealthzPort = ":8081"
@@ -13,7 +13,7 @@ const  (
 	MetricsPath = "/metrics"
 
 	// KeyURIPattern regex for validating kms' key resource id.
-    KeyURIPattern = `^projects\/[-a-zA-Z0-9_]*\/locations\/[-a-zA-Z0-9_]*\/keyRings\/[-a-zA-Z0-9_]*\/cryptoKeys\/[-a-zA-Z0-9_]*`
+	KeyURIPattern = `^projects\/[-a-zA-Z0-9_]*\/locations\/[-a-zA-Z0-9_]*\/keyRings\/[-a-zA-Z0-9_]*\/cryptoKeys\/[-a-zA-Z0-9_]*`
 
 	// Unix Domain Socket
 	netProtocol    = "unix"

@@ -27,7 +27,7 @@ type Orchestrator struct {
 // NewOrchestrator constructs Orchestrator.
 func NewOrchestrator(p *Plugin, healthzPath, healthzPort, metricsPath, metricsPort string) *Orchestrator {
 	return &Orchestrator{
-		Plugin: p,
+		Plugin:      p,
 		healthzPath: healthzPath,
 		healthzPort: healthzPort,
 		metricsPath: metricsPath,
