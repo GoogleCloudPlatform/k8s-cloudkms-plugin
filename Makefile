@@ -25,10 +25,8 @@ PROJECT = alextc-k8s-lab
 ZONE = us-central1-b
 MASTER = kubernetes-master
 
-deps:
-	go get github.com/tools/godep
 
-build: clean deps
+build: clean
 	$(ENVVAR) go test ./...
 	$(ENVVAR) go build -o $(BIN)
 	$(ENVVAR) go test ./plugin -c

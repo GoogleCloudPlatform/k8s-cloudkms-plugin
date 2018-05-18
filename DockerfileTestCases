@@ -20,7 +20,7 @@ RUN apk --no-cache update && \
 
 FROM scratch AS cloud-kms-plugin
 ARG kms_key_uri=projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01
-ARG socket_path=/kms-plugin.socket
+ARG socket_path=@kms-plugin-socket
 ARG test_service_account_key=cloud-kms-lab-svc.json
 
 LABEL maintainer="alextc@google.com"
@@ -30,7 +30,6 @@ COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 
 # Integration test (might be userfull if troubleshooting or benchmarking), remove in production.
 COPY plugin.test /
-ADD test.socket /tmp/
 
 # Uncomment lines below only if testing in docker locally (not on GCE, GKE)
 # This will allow application default credentails to be loaded from an exported service account key-file.
