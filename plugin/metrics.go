@@ -58,6 +58,7 @@ var registerMetrics sync.Once
 func RegisterMetrics() {
 	registerMetrics.Do(func() {
 		prometheus.MustRegister(CloudKMSOperationalLatencies)
+		prometheus.MustRegister(CloudKMSOperationalFailuresTotal)
 	})
 }
 
