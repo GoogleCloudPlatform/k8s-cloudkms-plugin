@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	"github.com/immutablet/k8s-cloudkms-plugin/tests"
 
 	"fmt"
 	"strconv"
@@ -43,7 +44,7 @@ type Logger interface {
 }
 
 func TestE2E(t *testing.T) {
-	p, err := New(TestKeyURI, getSocketAddress(), "")
+	p, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -54,7 +55,7 @@ func TestE2E(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	mustGetHttpBody(t, HealthzPort, HealthzPath, "ok")
-	mustGetHttpBody(t, MetricsPort, MetricsPath, metricsOfInterest[0])
+	mustGetHttpBody(t, MetricsPort, MetricsPath, tests.MetricsOfInterest[0])
 
 	mustGatherMetrics(t)
 	printMetrics(t)
@@ -63,7 +64,7 @@ func TestE2E(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, getSocketAddress(), "")
+	sut, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -89,7 +90,7 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptionError(t *testing.T) {
 	plainText := []byte("secret")
 
-	sut, err := New(TestKeyURI, getSocketAddress(), "")
+	sut, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -135,7 +136,7 @@ func BenchmarkRPC(b *testing.B) {
 }
 
 func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
-	sut, err := New(TestKeyURI, getSocketAddress(), "")
+	sut, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
 	}
@@ -183,7 +184,7 @@ func printMetrics(l Logger) error {
 
 	for _, mf := range metrics {
 		// l.Logf("%s", *mf.Name)
-		if contains(metricsOfInterest, *mf.Name) {
+		if contains(tests.MetricsOfInterest, *mf.Name) {
 			for _, metric := range mf.GetMetric() {
 				l.Logf("%v", metric)
 			}
@@ -199,11 +200,11 @@ func mustGatherMetrics(l Logger)  {
 		l.Fatalf("failed to gather metrics: %s", err)
 	}
 
-	expectedCount := len(metricsOfInterest)
+	expectedCount := len(tests.MetricsOfInterest)
 	actualCount := 0
 
 	for _, mf := range metrics {
-		if contains(metricsOfInterest, *mf.Name) {
+		if contains(tests.MetricsOfInterest, *mf.Name) {
 			actualCount += 1
 		}
 	}
@@ -216,7 +217,7 @@ func mustGatherMetrics(l Logger)  {
 func ExampleEncrypt() {
 	plainText := []byte("secret")
 
-	plugin, err := New(TestKeyURI, getSocketAddress(), "")
+	plugin, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
@@ -233,7 +234,7 @@ func ExampleEncrypt() {
 func ExampleDecrypt() {
 	cipher := "secret goes here"
 
-	plugin, err := New(TestKeyURI, getSocketAddress(), "")
+	plugin, err := New(tests.TestKeyURI, getSocketAddress(), "")
 	if err != nil {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}

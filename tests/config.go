@@ -1,4 +1,4 @@
-package plugin
+package tests
 
 
 const (
@@ -6,7 +6,7 @@ const (
 )
 
 var (
-	metricsOfInterest = []string{
+	MetricsOfInterest = []string{
 		"apiserver_kms_kms_plugin_roundtrip_latencies",
 		// "apiserver_kms_kms_plugin_failures_total",
 		"go_memstats_alloc_bytes_total",
