@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	CloudKMSOperationalLatencies = prometheus.NewSummaryVec(
+	cloudKMSOperationalLatencies = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
@@ -42,7 +42,7 @@ var (
 		[]string{"operation_type"},
 	)
 
-	CloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
+	cloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
@@ -55,21 +55,24 @@ var (
 
 var registerMetrics sync.Once
 
+// RegisterMetrics registers prometheus metrics.
 func RegisterMetrics() {
 	registerMetrics.Do(func() {
-		prometheus.MustRegister(CloudKMSOperationalLatencies)
-		prometheus.MustRegister(CloudKMSOperationalFailuresTotal)
+		prometheus.MustRegister(cloudKMSOperationalLatencies)
+		prometheus.MustRegister(cloudKMSOperationalFailuresTotal)
 	})
 }
 
+// RecordCloudKMSOperation records kms operational latencies.
 func RecordCloudKMSOperation(operationType string, start time.Time) {
-	CloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
+	cloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
 }
 
 func sinceInMilliseconds(start time.Time) float64 {
 	return float64(time.Since(start).Nanoseconds() / int64(time.Millisecond))
 }
 
+// Metrics handles metrics related functionality of the plugin,including healthz and performance.
 type Metrics struct {
 	healthzPath string
 	healthzPort string
@@ -77,6 +80,7 @@ type Metrics struct {
 	metricsPort string
 }
 
+// NewMetrics constructs Metrics
 func NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *Metrics {
 	return &Metrics{
 		healthzPath: healthzPath,
@@ -86,6 +90,7 @@ func NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *Metr
 	}
 }
 
+// MustServeMetrics serves healthz and performance metrics or dies.
 func (m *Metrics) MustServeMetrics() {
 	go m.mustServeHealthz()
 	go m.mustServeMetrics()

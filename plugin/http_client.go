@@ -19,20 +19,23 @@ package plugin
 import (
 	"fmt"
 	"net/http"
-
 	"io"
-
 	"os"
 
 	"github.com/golang/glog"
+
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+
 	cloudkms "google.golang.org/api/cloudkms/v1"
+
 	gcfg "gopkg.in/gcfg.v1"
+
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 )
 
+// TokenConfig represents attributes found in gce.conf - only attributes of the interest of this plugin are listed.
 type TokenConfig struct {
 	Global struct {
 		TokenURL  string `gcfg:"token-url"`

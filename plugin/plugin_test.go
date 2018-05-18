@@ -54,8 +54,8 @@ func TestE2E(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	mustGetHttpBody(t, HealthzPort, HealthzPath, "ok")
-	mustGetHttpBody(t, MetricsPort, MetricsPath, tests.MetricsOfInterest[0])
+	mustGetHTTPBody(t, HealthzPort, HealthzPath, "ok")
+	mustGetHTTPBody(t, MetricsPort, MetricsPath, tests.MetricsOfInterest[0])
 
 	mustGatherMetrics(t)
 	printMetrics(t)
@@ -69,14 +69,14 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := sut.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		t.Error(err)
@@ -95,14 +95,14 @@ func TestDecryptionError(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
+	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
 	_, err = sut.Decrypt(context.Background(), &decryptRequest)
 	if err == nil {
 		t.Fatal(err)
@@ -157,13 +157,13 @@ func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
 }
 
 func runGRPCTest(l Logger, client k8spb.KeyManagementServiceClient, plainText []byte) {
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: plainText}
+	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: plainText}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
 		l.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		l.Fatal(err)
@@ -205,7 +205,7 @@ func mustGatherMetrics(l Logger)  {
 
 	for _, mf := range metrics {
 		if contains(tests.MetricsOfInterest, *mf.Name) {
-			actualCount += 1
+			actualCount++
 		}
 	}
 
@@ -248,7 +248,7 @@ func ExampleDecrypt() {
 	fmt.Printf("Plain: %s", string(decryptResponse.Plain))
 }
 
-func mustGetHttpBody(l Logger, port, path, expect string) {
+func mustGetHTTPBody(l Logger, port, path, expect string) {
 	resp, err := http.Get( fmt.Sprintf("http://127.0.0.1%s%s", port, path))
 	if err != nil {
 		l.Fatalf("Failed to reach %s%s: %v", port, path, err)

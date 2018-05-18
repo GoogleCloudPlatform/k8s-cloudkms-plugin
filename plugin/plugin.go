@@ -43,6 +43,8 @@ func init() {
 	RegisterMetrics()
 }
 
+
+// Plugin CloudKMS plugin for K8S.
 type Plugin struct {
 	keys             *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
 	keyURI           string
@@ -51,6 +53,7 @@ type Plugin struct {
 	*grpc.Server
 }
 
+// New constructs Plugin.
 func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
 	httpClient, err := newHTTPClient(gceConfig)
 	if err != nil {
@@ -69,6 +72,7 @@ func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
 	return plugin, nil
 }
 
+// Stop stops Plugin.
 func (g *Plugin) Stop() {
 	if g.Server != nil {
 		g.Server.Stop()
@@ -79,8 +83,9 @@ func (g *Plugin) Stop() {
 	}
 }
 
+// Version returns the version of KMS Plugin.
 func (g *Plugin) Version(ctx context.Context, request *k8spb.VersionRequest) (*k8spb.VersionResponse, error) {
-	return &k8spb.VersionResponse{Version: APIVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
+	return &k8spb.VersionResponse{Version: apiVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
 }
 
 func (g *Plugin) mustServeKMSRequests() {
@@ -101,6 +106,7 @@ func (g *Plugin) mustServeRPC() {
 	glog.Infof("Serving gRPC")
 }
 
+// Encrypt encrypts payload provided by K8S API Server.
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {
 	defer RecordCloudKMSOperation("encrypt", time.Now())
 	glog.Infof("Processing EncryptRequest with keyURI: %s", g.keyURI)
@@ -109,7 +115,7 @@ func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k
 
 	kmsEncryptResponse, err := g.keys.Encrypt(g.keyURI, kmsEncryptRequest).Do()
 	if err != nil {
-		CloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
+		cloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
 		return nil, err
 	}
 
@@ -121,6 +127,7 @@ func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k
 	return &k8spb.EncryptResponse{Cipher: []byte(cipher)}, nil
 }
 
+// Decrypt decrypts payload supplied by K8S API Server.
 func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k8spb.DecryptResponse, error) {
 	defer RecordCloudKMSOperation("decrypt", time.Now())
 
@@ -132,7 +139,7 @@ func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k
 
 	kmsDecryptResponse, err := g.keys.Decrypt(g.keyURI, kmsDecryptRequest).Do()
 	if err != nil {
-		CloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
+		cloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
 		return nil, err
 	}
 

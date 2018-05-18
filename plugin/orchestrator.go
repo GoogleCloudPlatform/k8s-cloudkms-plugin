@@ -18,11 +18,13 @@ package plugin
 
 import "time"
 
+// Orchestrator controls the lifecycle of the plugin.
 type Orchestrator struct {
 	*Plugin
 	healthzPath, healthzPort, metricsPath, metricsPort string
 }
 
+// NewOrchestrator constructs Orchestrator.
 func NewOrchestrator(p *Plugin, healthzPath, healthzPort, metricsPath, metricsPort string) *Orchestrator {
 	return &Orchestrator{
 		Plugin: p,
@@ -32,8 +34,10 @@ func NewOrchestrator(p *Plugin, healthzPath, healthzPort, metricsPath, metricsPo
 		metricsPort: metricsPort,
 	}
 }
+
+// Run entry point into the plugin.
 func (o *Orchestrator) Run() {
-	v := NewValidator(o.Plugin)
+	v := newValidator(o.Plugin)
 	m := NewMetrics(o.healthzPath, o.healthzPort, o.metricsPath, o.metricsPort)
 
 	v.mustValidatePrerequisites()

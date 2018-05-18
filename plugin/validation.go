@@ -24,20 +24,22 @@ import (
 	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
 )
 
-type Validator struct {
+// validator checks plugin's pre-conditions.
+type validator struct {
 	*Plugin
 }
 
-func NewValidator(plugin *Plugin) *Validator {
-	return &Validator{plugin}
+// newValidator constructs Validator.
+func newValidator(plugin *Plugin) *validator {
+	return &validator{plugin}
 }
 
-func (v *Validator) mustValidatePrerequisites() {
+func (v *validator) mustValidatePrerequisites() {
 	v.mustHaveIAMPermissions()
 	v.mustPingKMS()
 }
 
-func (v *Validator) mustHaveIAMPermissions() {
+func (v *validator) mustHaveIAMPermissions() {
 	glog.Infof("Validating IAM Permissions on %s", v.keyURI)
 
 	req := &cloudkms.TestIamPermissionsRequest{
@@ -61,19 +63,19 @@ func (v *Validator) mustHaveIAMPermissions() {
 	glog.Infof("Successfully validated IAM Permissions on %s.", v.keyURI)
 }
 
-func (v *Validator) mustPingKMS() {
+func (v *validator) mustPingKMS() {
 	plainText := []byte("secret")
 
 	glog.Infof("Pinging KMS.")
 
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := v.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := v.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
@@ -86,7 +88,7 @@ func (v *Validator) mustPingKMS() {
 	glog.Infof("Successfully pinged KMS.")
 }
 
-func (v *Validator) mustPingRPC() {
+func (v *validator) mustPingRPC() {
 	glog.Infof("Pinging KMS gRPC.")
 
 	connection, err := v.newUnixSocketConnection()
@@ -97,14 +99,14 @@ func (v *Validator) mustPingRPC() {
 
 	plainText := []byte("secret")
 
-	encryptRequest := k8spb.EncryptRequest{Version: APIVersion, Plain: []byte(plainText)}
+	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: APIVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		glog.Fatalf("failed to ping KMS gRPC: %v", err)
