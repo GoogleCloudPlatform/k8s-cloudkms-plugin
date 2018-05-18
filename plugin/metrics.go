@@ -17,7 +17,6 @@ limitations under the License.
 package plugin
 
 import (
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -53,18 +52,14 @@ var (
 	)
 )
 
-var registerMetrics sync.Once
 
-// RegisterMetrics registers prometheus metrics.
-func RegisterMetrics() {
-	registerMetrics.Do(func() {
-		prometheus.MustRegister(cloudKMSOperationalLatencies)
-		prometheus.MustRegister(cloudKMSOperationalFailuresTotal)
-	})
+func init() {
+	prometheus.MustRegister(cloudKMSOperationalLatencies)
+	prometheus.MustRegister(cloudKMSOperationalFailuresTotal)
 }
 
-// RecordCloudKMSOperation records kms operational latencies.
-func RecordCloudKMSOperation(operationType string, start time.Time) {
+// recordCloudKMSOperation records kms operational latencies.
+func recordCloudKMSOperation(operationType string, start time.Time) {
 	cloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
 }
 
@@ -72,17 +67,17 @@ func sinceInMilliseconds(start time.Time) float64 {
 	return float64(time.Since(start).Nanoseconds() / int64(time.Millisecond))
 }
 
-// Metrics handles metrics related functionality of the plugin,including healthz and performance.
-type Metrics struct {
+// metrics handles metrics related functionality of the plugin,including healthz and performance.
+type metrics struct {
 	healthzPath string
 	healthzPort string
 	metricsPath string
 	metricsPort string
 }
 
-// NewMetrics constructs Metrics
-func NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *Metrics {
-	return &Metrics{
+// newMetrics constructs Metrics
+func newMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *metrics {
+	return &metrics{
 		healthzPath: healthzPath,
 		healthzPort: healthzPort,
 		metricsPath: metricsPath,
@@ -90,13 +85,13 @@ func NewMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *Metr
 	}
 }
 
-// MustServeMetrics serves healthz and performance metrics or dies.
-func (m *Metrics) MustServeMetrics() {
+// mustServe serves healthz and performance metrics or dies.
+func (m *metrics) mustServe() {
 	go m.mustServeHealthz()
 	go m.mustServeMetrics()
 }
 
-func (m *Metrics) mustServeHealthz() {
+func (m *metrics) mustServeHealthz() {
 	serverHealthz := http.NewServeMux()
 	serverHealthz.HandleFunc(m.healthzPath, func (w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -106,7 +101,7 @@ func (m *Metrics) mustServeHealthz() {
 	glog.Fatal(http.ListenAndServe(m.healthzPort, serverHealthz))
 }
 
-func (m *Metrics) mustServeMetrics() {
+func (m *metrics) mustServeMetrics() {
 	serverMetrics := http.NewServeMux()
 	serverMetrics.Handle(m.metricsPath, promhttp.Handler())
 	glog.Infof("Registering metrics listener at http://localhost:%s%s", m.metricsPort, m.metricsPath)

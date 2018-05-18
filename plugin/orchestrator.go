@@ -38,7 +38,7 @@ func NewOrchestrator(p *Plugin, healthzPath, healthzPort, metricsPath, metricsPo
 // Run entry point into the plugin.
 func (o *Orchestrator) Run() {
 	v := newValidator(o.Plugin)
-	m := NewMetrics(o.healthzPath, o.healthzPort, o.metricsPath, o.metricsPort)
+	m := newMetrics(o.healthzPath, o.healthzPort, o.metricsPath, o.metricsPort)
 
 	v.mustValidatePrerequisites()
 
@@ -50,5 +50,5 @@ func (o *Orchestrator) Run() {
 
 	v.mustPingRPC()
 
-	m.MustServeMetrics()
+	m.mustServe()
 }

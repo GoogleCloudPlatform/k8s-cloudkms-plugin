@@ -45,7 +45,7 @@ func TestShouldReturnNilOnGCEMaster(t *testing.T) {
 		t.Fatalf("Failed to read gce.conf, err: %s", err)
 	}
 
-	if (TokenConfig{}) != *c {
+	if (tokenConfig{}) != *c {
 		t.Fatalf("Alt Token Info should be empty on GCE.")
 	}
 }

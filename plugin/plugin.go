@@ -39,11 +39,6 @@ const (
 	decryptIAMPermission = "cloudkms.cryptoKeyVersions.useToDecrypt"
 )
 
-func init() {
-	RegisterMetrics()
-}
-
-
 // Plugin CloudKMS plugin for K8S.
 type Plugin struct {
 	keys             *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
@@ -108,7 +103,7 @@ func (g *Plugin) mustServeRPC() {
 
 // Encrypt encrypts payload provided by K8S API Server.
 func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k8spb.EncryptResponse, error) {
-	defer RecordCloudKMSOperation("encrypt", time.Now())
+	defer recordCloudKMSOperation("encrypt", time.Now())
 	glog.Infof("Processing EncryptRequest with keyURI: %s", g.keyURI)
 
 	kmsEncryptRequest := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
@@ -129,7 +124,7 @@ func (g *Plugin) Encrypt(ctx context.Context, request *k8spb.EncryptRequest) (*k
 
 // Decrypt decrypts payload supplied by K8S API Server.
 func (g *Plugin) Decrypt(ctx context.Context, request *k8spb.DecryptRequest) (*k8spb.DecryptResponse, error) {
-	defer RecordCloudKMSOperation("decrypt", time.Now())
+	defer recordCloudKMSOperation("decrypt", time.Now())
 
 	glog.Infof("Processing DecryptRequest with keyURI: %s", g.keyURI)
 

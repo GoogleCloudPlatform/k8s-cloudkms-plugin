@@ -35,8 +35,8 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 )
 
-// TokenConfig represents attributes found in gce.conf - only attributes of the interest of this plugin are listed.
-type TokenConfig struct {
+// tokenConfig represents attributes found in gce.conf - only attributes of the interest of this plugin are listed.
+type tokenConfig struct {
 	Global struct {
 		TokenURL  string `gcfg:"token-url"`
 		TokenBody string `gcfg:"token-body"`
@@ -56,7 +56,7 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 			return nil, err
 		}
 
-		if (TokenConfig{} == *c) {
+		if (tokenConfig{} == *c) {
 			glog.Infof("Since TokenConfig contains neither TokenURI nor TokenBody assuming that running on GCE (ex. via kube-up.sh)")
 			return getDefaultClient()
 		}
@@ -78,8 +78,8 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 	return getDefaultClient()
 }
 
-func readConfig(reader io.Reader) (*TokenConfig, error) {
-	cfg := &TokenConfig{}
+func readConfig(reader io.Reader) (*tokenConfig, error) {
+	cfg := &tokenConfig{}
 	if err := gcfg.FatalOnly(gcfg.ReadInto(cfg, reader)); err != nil {
 		glog.Errorf("Couldn't read GCE Config: %v", err)
 		return nil, err
