@@ -46,6 +46,7 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to open GCE Config: %s", pathToGCEConf)
 		}
+		defer r.Close()
 
 		c, err := readConfig(r)
 		if err != nil {
