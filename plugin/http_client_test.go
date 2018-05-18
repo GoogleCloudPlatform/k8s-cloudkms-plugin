@@ -25,7 +25,7 @@ node-tags = kubernetes-minion`
 func TestExtractTokenConfigOnHostedMaster(t *testing.T) {
 	r := strings.NewReader(gceConfOnGKE)
 	c, err := readConfig(r)
-	if c == nil {
+	if c == nil || err != nil {
 		t.Fatalf("Failed to read gce.conf, err: %s", err)
 	}
 
