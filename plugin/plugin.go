@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sys/unix"

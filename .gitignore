@@ -24,4 +24,3 @@ cloud-kms-lab-svc.json
 hack/kube-apiserver.manifest
 k8s-cloud-kms-plugin
 plugin.test
-vendor/

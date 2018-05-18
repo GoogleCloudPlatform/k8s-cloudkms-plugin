@@ -21,7 +21,7 @@ import (
 	cloudkms "google.golang.org/api/cloudkms/v1"
 
 	"github.com/golang/glog"
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 )
 
 // validator checks plugin's pre-conditions.

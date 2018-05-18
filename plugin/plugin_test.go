@@ -27,8 +27,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/immutablet/k8s-cloudkms-plugin/tests"
-	k8spb "github.com/immutablet/k8s-cloudkms-plugin/v1beta1"
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/tests"
+	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"golang.org/x/net/context"

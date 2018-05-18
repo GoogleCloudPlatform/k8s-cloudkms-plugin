@@ -26,7 +26,7 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
-	"github.com/immutablet/k8s-cloudkms-plugin/plugin"
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
 
 var (
