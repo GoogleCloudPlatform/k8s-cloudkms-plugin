@@ -18,14 +18,10 @@ package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
 	"strconv"
-	"strings"
 	"testing"
-	"time"
 
 	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,16 +31,6 @@ import (
 
 const (
 	testKeyURI = "projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01"
-)
-
-var (
-	metricsOfInterest = []string{
-		"apiserver_kms_kms_plugin_roundtrip_latencies",
-		// "apiserver_kms_kms_plugin_failures_total",
-		"go_memstats_alloc_bytes_total",
-		"go_memstats_frees_total",
-		"process_cpu_seconds_total",
-	}
 )
 
 // Logger allows t.Testing and b.Testing to be passed to a method that executes testing logic.
@@ -64,12 +50,6 @@ func TestE2E(t *testing.T) {
 	sut := NewOrchestrator(p, HealthzPath, HealthzPort, MetricsPath, MetricsPort)
 	sut.Run()
 
-	time.Sleep(1 * time.Millisecond)
-
-	mustGetHTTPBody(t, HealthzPort, HealthzPath, "ok")
-	mustGetHTTPBody(t, MetricsPort, MetricsPath, metricsOfInterest[0])
-
-	mustGatherMetrics(t)
 	printMetrics(t)
 }
 
@@ -196,7 +176,7 @@ func printMetrics(l Logger) error {
 
 	for _, mf := range metrics {
 		// l.Logf("%s", *mf.Name)
-		if contains(metricsOfInterest, *mf.Name) {
+		if contains(expectedMetrics, *mf.Name) {
 			for _, metric := range mf.GetMetric() {
 				l.Logf("%v", metric)
 			}
@@ -204,26 +184,6 @@ func printMetrics(l Logger) error {
 	}
 
 	return nil
-}
-
-func mustGatherMetrics(l Logger) {
-	metrics, err := prometheus.DefaultGatherer.Gather()
-	if err != nil {
-		l.Fatalf("failed to gather metrics: %s", err)
-	}
-
-	expectedCount := len(metricsOfInterest)
-	actualCount := 0
-
-	for _, mf := range metrics {
-		if contains(metricsOfInterest, *mf.Name) {
-			actualCount++
-		}
-	}
-
-	if expectedCount != actualCount {
-		l.Fatalf("Expected %d metrics, but got %d", expectedCount, actualCount)
-	}
 }
 
 func ExampleEncrypt() {
@@ -258,19 +218,6 @@ func ExampleDecrypt() {
 	}
 
 	fmt.Printf("Plain: %s", string(decryptResponse.Plain))
-}
-
-func mustGetHTTPBody(l Logger, port, path, expect string) {
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1%s%s", port, path))
-	if err != nil {
-		l.Fatalf("Failed to reach %s%s: %v", port, path, err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if !strings.Contains(string(body), expect) {
-		l.Fatalf("Expected %s, but got %s", expect, string(body))
-	}
 }
 
 func getSocketAddress() string {

@@ -17,11 +17,28 @@ limitations under the License.
 package plugin
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
 	"golang.org/x/net/context"
+
 	cloudkms "google.golang.org/api/cloudkms/v1"
 
-	"github.com/golang/glog"
 	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	expectedMetrics = []string{
+		"apiserver_kms_kms_plugin_roundtrip_latencies",
+		// "apiserver_kms_kms_plugin_failures_total",
+		"go_memstats_alloc_bytes_total",
+		"go_memstats_frees_total",
+		"process_cpu_seconds_total",
+	}
 )
 
 // validator checks plugin's pre-conditions.
@@ -119,11 +136,57 @@ func (v *validator) mustPingRPC() {
 	glog.Infof("Successfully pinged gRPC KMS.")
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+func mustEmitOKHealthz() {
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1%s%s", HealthzPort, HealthzPath))
+	if err != nil {
+		glog.Fatalf("Failed to reach %s%s: %v", HealthzPort, HealthzPath, err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if !strings.Contains(string(body), "ok") {
+		glog.Fatalf("Expected %s, but got %s", "ok", string(body))
+	}
+	glog.Infof("Declared Healthz to be OK on http://127.0.0.1%s%s.", HealthzPort, HealthzPath)
+}
+
+func mustEmitMetrics() {
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1%s%s", MetricsPort, MetricsPath))
+	if err != nil {
+		glog.Fatalf("Failed to reach %s%s: %v", MetricsPort, MetricsPath, err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if !strings.Contains(string(body), expectedMetrics[0]) {
+		glog.Fatalf("Expected %s, but got %s", expectedMetrics[0], string(body))
+	}
+
+	glog.Infof("Serving Metrics on http://127.0.0.1%s%s.", MetricsPort, MetricsPath)
+}
+
+func mustGatherMetrics() {
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		glog.Fatalf("failed to gather metrics: %s", err)
+	}
+
+	var diff []string
+	for _, e := range expectedMetrics {
+		found := false
+		for _, m := range metrics {
+			if e == *m.Name {
+				found = true
+				glog.Infof("Serving metric: %s", e)
+				break
+			}
+		}
+		if !found {
+			diff = append(diff, e)
 		}
 	}
-	return false
+
+	if len(diff) != 0 {
+		glog.Fatalf("Missing metrics\n%q", diff)
+	}
 }

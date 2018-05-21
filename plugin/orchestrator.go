@@ -49,6 +49,13 @@ func (o *Orchestrator) Run() {
 	time.Sleep(3 * time.Millisecond)
 
 	v.mustPingRPC()
+	mustGatherMetrics()
 
-	m.mustServe()
+	m.mustServeHealthzAndMetrics()
+
+	// Giving some time for HealthZ and Metrics to start Serving.
+	// TODO: Must be a better way than to sleep.
+	time.Sleep(3 * time.Millisecond)
+	mustEmitOKHealthz()
+	mustEmitMetrics()
 }

@@ -84,8 +84,8 @@ func newMetrics(healthzPath, healthzPort, metricsPath, metricsPort string) *metr
 	}
 }
 
-// mustServe serves healthz and performance metrics or dies.
-func (m *metrics) mustServe() {
+// mustServeHealthzAndMetrics serves healthz and performance metrics or dies.
+func (m *metrics) mustServeHealthzAndMetrics() {
 	go m.mustServeHealthz()
 	go m.mustServeMetrics()
 }
