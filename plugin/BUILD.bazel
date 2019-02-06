@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "http_client.go",
+        "metrics.go",
+        "orchestrator.go",
+        "plugin.go",
+        "service.pb.go",
+        "utils.go",
+        "validation.go",
+    ],
+    importpath = "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/gogo/protobuf/proto:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/golang.org/x/oauth2:go_default_library",
+        "//vendor/golang.org/x/oauth2/google:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//vendor/google.golang.org/api/cloudkms/v1:go_default_library",
+        "//vendor/gopkg.in/gcfg.v1:go_default_library",
+        "//vendor/k8s.io/kubernetes/pkg/cloudprovider/providers/gce:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "http_client_test.go",
+        "plugin_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+    ],
+)

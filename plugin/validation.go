@@ -26,7 +26,6 @@ import (
 
 	cloudkms "google.golang.org/api/cloudkms/v1"
 
-	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -85,14 +84,14 @@ func (v *validator) mustPingKMS() {
 
 	glog.Infof("Pinging KMS.")
 
-	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := v.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := v.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
@@ -112,18 +111,18 @@ func (v *validator) mustPingRPC() {
 	if err != nil {
 		glog.Fatalf("failed to open unix socket, %v", err)
 	}
-	client := k8spb.NewKeyManagementServiceClient(connection)
+	client := NewKeyManagementServiceClient(connection)
 
 	plainText := []byte("secret")
 
-	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		glog.Fatalf("failed to ping KMS: %v", err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		glog.Fatalf("failed to ping KMS gRPC: %v", err)

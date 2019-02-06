@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"testing"
 
-	k8spb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"golang.org/x/net/context"
@@ -61,14 +60,14 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := sut.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		t.Error(err)
@@ -87,14 +86,14 @@ func TestDecryptionError(t *testing.T) {
 		t.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
 	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
+	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
 	_, err = sut.Decrypt(context.Background(), &decryptRequest)
 	if err == nil {
 		t.Fatal(err)
@@ -127,7 +126,7 @@ func BenchmarkRPC(b *testing.B) {
 	printMetrics(b)
 }
 
-func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
+func setup() (*Plugin, KeyManagementServiceClient, error) {
 	sut, err := New(testKeyURI, getSocketAddress(), "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
@@ -144,18 +143,18 @@ func setup() (*Plugin, k8spb.KeyManagementServiceClient, error) {
 		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
 	}
 
-	client := k8spb.NewKeyManagementServiceClient(connection)
+	client := NewKeyManagementServiceClient(connection)
 	return sut, client, nil
 }
 
-func runGRPCTest(l Logger, client k8spb.KeyManagementServiceClient, plainText []byte) {
-	encryptRequest := k8spb.EncryptRequest{Version: apiVersion, Plain: plainText}
+func runGRPCTest(l Logger, client KeyManagementServiceClient, plainText []byte) {
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: plainText}
 	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
 		l.Fatal(err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
+	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
 	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		l.Fatal(err)
@@ -194,7 +193,7 @@ func ExampleEncrypt() {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	encryptRequest := k8spb.EncryptRequest{Version: "v1beta1", Plain: []byte(plainText)}
+	encryptRequest := EncryptRequest{Version: "v1beta1", Plain: []byte(plainText)}
 	encryptResponse, err := plugin.Encrypt(context.Background(), &encryptRequest)
 	if err != nil {
 		log.Fatal(err)
@@ -211,7 +210,7 @@ func ExampleDecrypt() {
 		log.Fatalf("failed to instantiate plugin, %v", err)
 	}
 
-	decryptRequest := k8spb.DecryptRequest{Version: "v1beta1", Cipher: []byte(cipher)}
+	decryptRequest := DecryptRequest{Version: "v1beta1", Cipher: []byte(cipher)}
 	decryptResponse, err := plugin.Decrypt(context.Background(), &decryptRequest)
 	if err != nil {
 		log.Fatal(err)
