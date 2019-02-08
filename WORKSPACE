@@ -33,6 +33,18 @@ new_local_repository(
     path = "//vendor/gopkg.in/warnings.v0",
 )
 
+new_local_repository(
+    name = "cmp",
+    build_file = "BUILD.bazel",
+    path = "//vendor/google/go-cmp/cmp",
+)
+
+new_local_repository(
+    name = "freeport",
+    build_file = "BUILD.bazel",
+    path = "//vendor/github.com/phayes/freeport",
+)
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()
