@@ -34,6 +34,12 @@ new_local_repository(
 )
 
 new_local_repository(
+    name = "inf",
+    build_file = "BUILD.bazel",
+    path = "//vendor/gopkg.in/inf.v0",
+)
+
+new_local_repository(
     name = "cmp",
     build_file = "BUILD.bazel",
     path = "//vendor/google/go-cmp/cmp",
@@ -49,6 +55,18 @@ new_local_repository(
     name = "corev1",
     build_file = "BUILD.bazel",
     path = "//vendor/k8s.io/api/core/v1",
+)
+
+new_local_repository(
+    name = "klog",
+    build_file = "BUILD.bazel",
+    path = "//vendor/k8s.io/klog",
+)
+
+new_local_repository(
+    name = "gofuzz",
+    build_file = "BUILD.bazel",
+    path = "//vendor/github.com/google/gofuzz",
 )
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")

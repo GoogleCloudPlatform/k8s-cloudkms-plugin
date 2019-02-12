@@ -173,7 +173,7 @@ func (f *Server) processPut(r *http.Request, w http.ResponseWriter) {
 }
 
 func (f *Server) processGet(url string, w http.ResponseWriter) {
-	log.Infof("Processing Get request %s", url)
+	glog.Infof("Processing Get request %s", url)
 	// TODO(alextc) Check URL - is it actually a get/list request for a Secret?
 	var response interface{}
 	switch {
