@@ -1,8 +1,12 @@
 <component name="ProjectDictionaryState">
   <dictionary name="alextc">
     <words>
+      <w>apiserver</w>
       <w>cloudkms</w>
+      <w>corev</w>
       <w>fakekms</w>
+      <w>fakekubeapi</w>
+      <w>kube</w>
       <w>pluginclient</w>
     </words>
   </dictionary>

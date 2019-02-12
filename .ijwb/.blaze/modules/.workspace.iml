@@ -17,6 +17,7 @@
       <excludeFolder url="file://$MODULE_DIR$/../../../bazel-testlogs" />
     </content>
     <content url="file://$MODULE_DIR$/../../../vendor/github.com/google" />
+    <content url="file://$MODULE_DIR$/../../../vendor/k8s.io" />
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Python 2.7 interpreter library" level="application" />

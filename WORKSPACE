@@ -45,6 +45,12 @@ new_local_repository(
     path = "//vendor/github.com/phayes/freeport",
 )
 
+new_local_repository(
+    name = "corev1",
+    build_file = "BUILD.bazel",
+    path = "//vendor/k8s.io/api/core/v1",
+)
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()

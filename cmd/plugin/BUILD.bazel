@@ -7,8 +7,8 @@ go_library(
     importpath = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/cmd/plugin",
     visibility = ["//visibility:public"],
     deps = [
-        "//plugin:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
+        "@com_github_googlecloudplatform_k8s_cloudkms_plugin//plugin:go_default_library",
     ],
 )
 
