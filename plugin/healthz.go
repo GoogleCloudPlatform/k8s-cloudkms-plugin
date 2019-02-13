@@ -104,6 +104,7 @@ func (h *HealthZ) pingRPC(ctx context.Context, c KeyManagementServiceClient) err
 
 func (h *HealthZ) testIAMPermissions() error {
 	want := sets.NewString("cloudkms.cryptoKeyVersions.useToEncrypt", "cloudkms.cryptoKeyVersions.useToDecrypt")
+	glog.Infof("Testing IAM permissions, want %v", want.List())
 
 	req := &kmspb.TestIamPermissionsRequest{
 		Permissions: want.List(),
@@ -113,12 +114,13 @@ func (h *HealthZ) testIAMPermissions() error {
 	if err != nil {
 		return fmt.Errorf("failed to test IAM Permissions on %s, %v", h.KeyName, err)
 	}
+	glog.Infof("Got permissions: %v from CloudKMS for key:%s", resp.Permissions, h.KeyName)
 
 	got := sets.NewString(resp.Permissions...)
-
-	diff := got.Difference(want)
+	diff := want.Difference(got)
 
 	if diff.Len() != 0 {
+		glog.Errorf("Failed to validate IAM Permissions on %s, diff: %v", h.KeyName, diff)
 		return fmt.Errorf("missing %v IAM permissions on CryptoKey:%s", diff, h.KeyName)
 	}
 

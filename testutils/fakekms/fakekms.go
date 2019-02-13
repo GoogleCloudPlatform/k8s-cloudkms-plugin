@@ -132,7 +132,7 @@ func NewWithPipethrough(keyName string, port int) (*Server, error) {
 				Plaintext: r.Ciphertext,
 			}, http.StatusOK, nil
 		case *cloudkms.TestIamPermissionsRequest:
-			return &cloudkms.TestIamPermissionsRequest{
+			return &cloudkms.TestIamPermissionsResponse{
 				Permissions: []string{
 					"cloudkms.cryptoKeyVersions.useToEncrypt",
 					"cloudkms.cryptoKeyVersions.useToDecrypt",

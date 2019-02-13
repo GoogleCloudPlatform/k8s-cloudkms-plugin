@@ -35,13 +35,11 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/grpc"
 
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
+	"github.com/golang/protobuf/proto"
+	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheuspb "github.com/prometheus/client_model/go"
-
-	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
-	"github.com/phayes/freeport"
-
-	"github.com/golang/protobuf/proto"
 )
 
 const (
