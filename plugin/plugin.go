@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package plugin implements CloudKMS plugin for GKE as described in go/gke-secrets-encryption-design.
 package plugin
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -26,94 +28,56 @@ import (
 
 	"github.com/golang/glog"
 
-	"golang.org/x/net/context"
-	"golang.org/x/sys/unix"
-
-	cloudkms "google.golang.org/api/cloudkms/v1"
+	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
 )
 
 const (
-	encryptIAMPermission = "cloudkms.cryptoKeyVersions.useToEncrypt"
-	decryptIAMPermission = "cloudkms.cryptoKeyVersions.useToDecrypt"
+	// Unix Domain Socket
+	netProtocol    = "unix"
+	apiVersion     = "v1beta1"
+	runtimeName    = "CloudKMS"
+	runtimeVersion = "0.0.1"
 )
 
-// Plugin CloudKMS plugin for K8S.
+// Plugin is a CloudKMS plugin for K8S.
 type Plugin struct {
-	keys             *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
+	keyService       *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
 	keyURI           string
 	pathToUnixSocket string
+	// Embedding these only to shorten access to fields.
 	net.Listener
 	*grpc.Server
 }
 
 // New constructs Plugin.
-func New(keyURI, pathToUnixSocketFile, gceConfig string) (*Plugin, error) {
-	httpClient, err := newHTTPClient(gceConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate http httpClient: %v", err)
-	}
-
-	kmsClient, err := cloudkms.New(httpClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate cloud kms httpClient: %v", err)
-	}
-
-	plugin := new(Plugin)
-	plugin.keys = kmsClient.Projects.Locations.KeyRings.CryptoKeys
-	plugin.keyURI = keyURI
-	plugin.pathToUnixSocket = pathToUnixSocketFile
-	return plugin, nil
-}
-
-// Stop stops Plugin.
-func (g *Plugin) Stop() {
-	if g.Server != nil {
-		g.Server.Stop()
-	}
-
-	if g.Listener != nil {
-		g.Listener.Close()
+func New(keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService, keyURI, pathToUnixSocketFile string) *Plugin {
+	return &Plugin{
+		keyService:       keyService,
+		keyURI:           keyURI,
+		pathToUnixSocket: pathToUnixSocketFile,
 	}
 }
 
 // Version returns the version of KMS Plugin.
 func (g *Plugin) Version(ctx context.Context, request *VersionRequest) (*VersionResponse, error) {
-	return &VersionResponse{Version: apiVersion, RuntimeName: runtime, RuntimeVersion: runtimeVersion}, nil
-}
-
-func (g *Plugin) mustServeKMSRequests() {
-
-	err := g.setupRPCServer()
-	if err != nil {
-		glog.Fatalf("failed to setup gRPC Server, %v", err)
-	}
-
-	go g.mustServeRPC()
-}
-
-func (g *Plugin) mustServeRPC() {
-	err := g.Serve(g.Listener)
-	if err != nil {
-		glog.Fatalf("failed to serve gRPC, %v", err)
-	}
-	glog.Infof("Serving gRPC")
+	return &VersionResponse{Version: apiVersion, RuntimeName: runtimeName, RuntimeVersion: runtimeVersion}, nil
 }
 
 // Encrypt encrypts payload provided by K8S API Server.
 func (g *Plugin) Encrypt(ctx context.Context, request *EncryptRequest) (*EncryptResponse, error) {
+	glog.V(4).Infoln("Processing request for encryption.")
+	// TODO(immutablet) check the version of the request and issue a warning if the version is not what the plugin expects.
 	defer recordCloudKMSOperation("encrypt", time.Now())
-	glog.Infof("Processing EncryptRequest with keyURI: %s", g.keyURI)
 
-	kmsEncryptRequest := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
-
-	kmsEncryptResponse, err := g.keys.Encrypt(g.keyURI, kmsEncryptRequest).Do()
+	req := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
+	resp, err := g.keyService.Encrypt(g.keyURI, req).Context(ctx).Do()
 	if err != nil {
 		cloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
 		return nil, err
 	}
 
-	cipher, err := base64.StdEncoding.DecodeString(kmsEncryptResponse.Ciphertext)
+	cipher, err := base64.StdEncoding.DecodeString(resp.Ciphertext)
 	if err != nil {
 		return nil, err
 	}
@@ -123,23 +87,22 @@ func (g *Plugin) Encrypt(ctx context.Context, request *EncryptRequest) (*Encrypt
 
 // Decrypt decrypts payload supplied by K8S API Server.
 func (g *Plugin) Decrypt(ctx context.Context, request *DecryptRequest) (*DecryptResponse, error) {
+	glog.V(4).Infoln("Processing request for decryption.")
+	// TODO(immutableT) check the version of the request and issue a warning if the version is not what the plugin expects.
 	defer recordCloudKMSOperation("decrypt", time.Now())
 
-	glog.Infof("Processing DecryptRequest with keyURI: %s", g.keyURI)
-
-	kmsDecryptRequest := &cloudkms.DecryptRequest{
+	req := &cloudkms.DecryptRequest{
 		Ciphertext: base64.StdEncoding.EncodeToString(request.Cipher),
 	}
-
-	kmsDecryptResponse, err := g.keys.Decrypt(g.keyURI, kmsDecryptRequest).Do()
+	resp, err := g.keyService.Decrypt(g.keyURI, req).Context(ctx).Do()
 	if err != nil {
 		cloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
 		return nil, err
 	}
 
-	plain, err := base64.StdEncoding.DecodeString(kmsDecryptResponse.Plaintext)
+	plain, err := base64.StdEncoding.DecodeString(resp.Plaintext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode from base64, error: %v", err)
 	}
 
 	return &DecryptResponse{Plain: []byte(plain)}, nil
@@ -163,29 +126,32 @@ func (g *Plugin) setupRPCServer() error {
 	return nil
 }
 
-func (g *Plugin) cleanSockFile() error {
+// ServeKMSRequests starts gRPC server or dies.
+func (g *Plugin) ServeKMSRequests() (*grpc.Server, chan error) {
+	errorChan := make(chan error, 1)
+	if err := g.setupRPCServer(); err != nil {
+		errorChan <- err
+		close(errorChan)
+		return nil, errorChan
+	}
 
+	go func() {
+		defer close(errorChan)
+		errorChan <- g.Serve(g.Listener)
+	}()
+
+	return g.Server, errorChan
+}
+
+func (g *Plugin) cleanSockFile() error {
 	// @ implies the use of Linux socket namespace - no file on disk and nothing to clean-up.
 	if strings.HasPrefix(g.pathToUnixSocket, "@") {
 		return nil
 	}
 
-	err := unix.Unlink(g.pathToUnixSocket)
+	err := os.Remove(g.pathToUnixSocket)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete the socket file, error: %v", err)
 	}
 	return nil
-}
-
-func (g *Plugin) newUnixSocketConnection() (*grpc.ClientConn, error) {
-	protocol, addr := "unix", g.pathToUnixSocket
-	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout(protocol, addr, timeout)
-	}
-	connection, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
-	if err != nil {
-		return nil, err
-	}
-
-	return connection, nil
 }

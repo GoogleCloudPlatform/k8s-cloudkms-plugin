@@ -3,6 +3,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 # gazelle:prefix https://github.com/GoogleCloudPlatform/k8s-cloudkms-plugin
 # gazelle:resolve go github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin //plugin:go_default_library
 # gazelle:resolve go github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/kmspluginclient //testutils/kmspluginclient:go_default_library
+# gazelle:resolve go github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms //testutils/fakekms:go_default_library
 
 # gazelle:resolve go k8s.io/apimachinery/pkg/api/resource //vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library
 # gazelle:resolve go k8s.io/apimachinery/pkg/runtime //vendor/k8s.io/apimachinery/pkg/runtime:go_default_library

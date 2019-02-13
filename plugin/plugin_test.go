@@ -17,208 +17,432 @@ limitations under the License.
 package plugin
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"math/rand"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"testing"
+	"time"
+
+	"google.golang.org/api/cloudkms/v1"
+	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc"
 
 	"github.com/prometheus/client_golang/prometheus"
+	prometheuspb "github.com/prometheus/client_model/go"
 
-	"golang.org/x/net/context"
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
+	"github.com/phayes/freeport"
+
+	"github.com/golang/protobuf/proto"
 )
 
 const (
-	testKeyURI = "projects/cloud-kms-lab/locations/us-central1/keyRings/ring-01/cryptoKeys/key-01"
+	keyName = "testKey"
+	// Tests fake encryption by assuming that "foo" decrypts to "bar"
+	// Zm9v is base64 encoded foo
+	// YmFy is base64 encoded "bar"
+	ciphertext = "YmFy"
+	plaintext  = "Zm9v"
 )
 
-// Logger allows t.Testing and b.Testing to be passed to a method that executes testing logic.
-type Logger interface {
-	Errorf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Fatal(args ...interface{})
-	Logf(format string, args ...interface{})
+var (
+	positiveEncryptResponse = &cloudkms.EncryptResponse{
+		Ciphertext: ciphertext,
+		Name:       keyName,
+		ServerResponse: googleapi.ServerResponse{
+			HTTPStatusCode: http.StatusOK,
+		},
+	}
+	positiveDecryptResponse = &cloudkms.DecryptResponse{
+		Plaintext: plaintext,
+		ServerResponse: googleapi.ServerResponse{
+			HTTPStatusCode: http.StatusOK,
+		},
+	}
+	negativeEncryptResponse = &cloudkms.EncryptResponse{
+		ServerResponse: googleapi.ServerResponse{
+			HTTPStatusCode: http.StatusInternalServerError,
+		},
+	}
+)
+
+type pluginTestCase struct {
+	*Plugin
+	pluginRPCSrv *grpc.Server
+	fakeKMSSrv   *fakekms.Server
 }
 
-func TestE2E(t *testing.T) {
-	p, err := New(testKeyURI, getSocketAddress(), "")
-	if err != nil {
-		t.Fatalf("failed to instantiate plugin, %v", err)
-	}
-
-	sut := NewOrchestrator(p, HealthzPath, HealthzPort, MetricsPath, MetricsPort)
-	sut.Run()
-
-	printMetrics(t)
+func (p *pluginTestCase) tearDown() {
+	p.pluginRPCSrv.GracefulStop()
+	p.fakeKMSSrv.Close()
 }
 
-func TestEncryptDecrypt(t *testing.T) {
-	plainText := []byte("secret")
+func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTestCase {
+	t.Helper()
 
-	sut, err := New(testKeyURI, getSocketAddress(), "")
+	s, err := ioutil.TempFile("", "plugin-test")
 	if err != nil {
-		t.Fatalf("failed to instantiate plugin, %v", err)
+		t.Fatalf("Failed to create socket file, error: %v", err)
 	}
 
-	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
-	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
-
+	waitForPluginStart := 3 * time.Second
+	fakeKMSKeyService, err := cloudkms.New(fakeKMSSrv.Client())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to instantiate cloud kms httpClient: %v", err)
+	}
+	fakeKMSKeyService.BasePath = fakeKMSSrv.URL()
+	plugin := New(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, s.Name())
+	pluginRPCSrv, errChan := plugin.ServeKMSRequests()
+	// Giving some time for plugin to start while listening on the error channel.
+	select {
+	case err := <-errChan:
+		t.Fatalf("received an error on plugin's error channel: %v", err)
+	case <-time.After(waitForPluginStart):
 	}
 
-	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
-	decryptResponse, err := sut.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if string(decryptResponse.Plain) != string(plainText) {
-		t.Fatalf("Expected secret, but got %s", string(decryptResponse.Plain))
-	}
+	return &pluginTestCase{plugin, pluginRPCSrv, fakeKMSSrv}
 }
 
-func TestDecryptionError(t *testing.T) {
-	plainText := []byte("secret")
-
-	sut, err := New(testKeyURI, getSocketAddress(), "")
+func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
+	t.Helper()
+	fakeKMSSrv, err := fakekms.NewWithResponses(keyName, 0, delay, responses...)
 	if err != nil {
-		t.Fatalf("failed to instantiate plugin, %v", err)
+		t.Fatalf("Failed to construct FakeKMS, error: %v", err)
 	}
-
-	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
-	encryptResponse, err := sut.Encrypt(context.Background(), &encryptRequest)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher[1:])}
-	_, err = sut.Decrypt(context.Background(), &decryptRequest)
-	if err == nil {
-		t.Fatal(err)
-	}
+	return setUp(t, fakeKMSSrv, keyName)
 }
 
-func TestRPC(t *testing.T) {
-	plugin, client, err := setup()
-	defer plugin.Stop()
+func setUpWithPipethrough(t *testing.T, keyName string) *pluginTestCase {
+	t.Helper()
+	fakeKMSSrv, err := fakekms.NewWithPipethrough(keyName, 0)
 	if err != nil {
-		t.Fatalf("setup failed, %v", err)
+		t.Fatalf("Failed to construct FakeKMS, error: %v", err)
 	}
-
-	runGRPCTest(t, client, []byte("secret"))
+	return setUp(t, fakeKMSSrv, keyName)
 }
 
-func BenchmarkRPC(b *testing.B) {
-	b.StopTimer()
-	plugin, client, err := setup()
-	defer plugin.Stop()
-	if err != nil {
-		b.Fatalf("setup failed, %v", err)
-	}
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		runGRPCTest(b, client, []byte("secret"+strconv.Itoa(i)))
-	}
-	b.StopTimer()
-	printMetrics(b)
+func TestMain(m *testing.M) {
+	rand.Seed(time.Now().UnixNano())
+	os.Exit(m.Run())
 }
 
-func setup() (*Plugin, KeyManagementServiceClient, error) {
-	sut, err := New(testKeyURI, getSocketAddress(), "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to instantiate plugin, %v", err)
-	}
-	err = sut.setupRPCServer()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to start gRPC Server, %v", err)
-	}
+func TestEncrypt(t *testing.T) {
+	t.Parallel()
 
-	go sut.Server.Serve(sut.Listener)
-
-	connection, err := sut.newUnixSocketConnection()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open unix socket, %v", err)
-	}
-
-	client := NewKeyManagementServiceClient(connection)
-	return sut, client, nil
-}
-
-func runGRPCTest(l Logger, client KeyManagementServiceClient, plainText []byte) {
-	encryptRequest := EncryptRequest{Version: apiVersion, Plain: plainText}
-	encryptResponse, err := client.Encrypt(context.Background(), &encryptRequest)
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
-	decryptResponse, err := client.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	if string(decryptResponse.Plain) != string(plainText) {
-		l.Fatalf("Expected secret, but got %s", string(decryptResponse.Plain))
+	testCases := []struct {
+		desc                string
+		wantEncryptRequests []*cloudkms.EncryptRequest
+		wantDecryptRequests []*cloudkms.DecryptRequest
+		testFn              func(t *testing.T, p *Plugin)
+		response            json.Marshaler
+	}{
+		{
+			desc:                "Encrypt",
+			wantEncryptRequests: []*cloudkms.EncryptRequest{{Plaintext: plaintext}},
+			testFn: func(t *testing.T, p *Plugin) {
+				encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
+				if _, err := p.Encrypt(context.Background(), &encryptRequest); err != nil {
+					t.Fatalf("Failure while submitting request %v, error %v", encryptRequest, err)
+				}
+			},
+			response: positiveEncryptResponse,
+		},
+		{
+			desc:                "Decrypt",
+			wantDecryptRequests: []*cloudkms.DecryptRequest{{Ciphertext: ciphertext}},
+			testFn: func(t *testing.T, p *Plugin) {
+				decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte("bar")}
+				if _, err := p.Decrypt(context.Background(), &decryptRequest); err != nil {
+					t.Fatalf("Failure while submitting request %v, error %v", decryptRequest, err)
+				}
+			},
+			response: positiveDecryptResponse,
+		},
 	}
 
-	printMetrics(l)
-}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.desc, func(t *testing.T) {
+			t.Parallel()
+			tt := setUpWithResponses(t, keyName, 0, testCase.response)
+			defer tt.tearDown()
 
-func printMetrics(l Logger) error {
-	metrics, err := prometheus.DefaultGatherer.Gather()
-	if err != nil {
-		return fmt.Errorf("failed to gather metrics: %s", err)
-	}
+			testCase.testFn(t, tt.Plugin)
 
-	for _, mf := range metrics {
-		// l.Logf("%s", *mf.Name)
-		if contains(expectedMetrics, *mf.Name) {
-			for _, metric := range mf.GetMetric() {
-				l.Logf("%v", metric)
+			if err := tt.fakeKMSSrv.EncryptRequestsEqual(testCase.wantEncryptRequests); err != nil {
+				t.Fatalf("Failed to compare last processed request on KMS Server, error: %v", err)
 			}
+
+			if err := tt.fakeKMSSrv.DecryptRequestsEqual(testCase.wantDecryptRequests); err != nil {
+				t.Fatalf("Failed to compare last processed request on KMS Server, error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGatherMetrics(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		desc     string
+		testFn   func(t *testing.T, p *Plugin)
+		want     []string
+		response json.Marshaler
+	}{
+		{
+			desc: "Decrypt",
+			testFn: func(t *testing.T, p *Plugin) {
+				decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte("foo")}
+				_, err := p.Decrypt(context.Background(), &decryptRequest)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: []string{
+				"roundtrip_latencies",
+			},
+			response: positiveDecryptResponse,
+		},
+		{
+			desc: "Decrypt Failure",
+			testFn: func(t *testing.T, p *Plugin) {
+				decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte("foo")}
+				_, err := p.Decrypt(context.Background(), &decryptRequest)
+				if err == nil {
+					t.Fatal("expected Decrypt to fail")
+				}
+			},
+			want: []string{
+				"roundtrip_latencies",
+				"failures_count",
+			},
+			response: &cloudkms.DecryptResponse{
+				ServerResponse: googleapi.ServerResponse{
+					HTTPStatusCode: http.StatusInternalServerError,
+				},
+			},
+		},
+		{
+			desc: "Encrypt",
+			testFn: func(t *testing.T, p *Plugin) {
+				encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
+				_, err := p.Encrypt(context.Background(), &encryptRequest)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: []string{
+				"roundtrip_latencies",
+			},
+			response: positiveEncryptResponse,
+		},
+		{
+			desc: "Encrypt Failure",
+			testFn: func(t *testing.T, p *Plugin) {
+				encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
+				_, err := p.Encrypt(context.Background(), &encryptRequest)
+				if err == nil {
+					t.Fatal("expected Encrypt to fail")
+				}
+			},
+			want: []string{
+				"roundtrip_latencies",
+				"failures_count",
+			},
+			response: negativeEncryptResponse,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.desc, func(t *testing.T) {
+			t.Parallel()
+			tt := setUpWithResponses(t, keyName, 0, testCase.response)
+			defer tt.tearDown()
+			testCase.testFn(t, tt.Plugin)
+
+			got, err := prometheus.DefaultGatherer.Gather()
+			if err != nil {
+				t.Fatalf("failed to gather metrics: %s", err)
+			}
+			checkForExpectedMetrics(t, got, testCase.want)
+		})
+	}
+}
+
+func TestKMSTimeout(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		desc          string
+		response      json.Marshaler
+		responseDelay time.Duration
+		pluginTimeout time.Duration
+		testFn        func(ctx context.Context, t *testing.T, p *Plugin)
+	}{
+		{
+			desc:          "Encrypt",
+			response:      positiveEncryptResponse,
+			pluginTimeout: 1 * time.Second,
+			responseDelay: 3 * time.Second,
+			testFn: func(ctx context.Context, t *testing.T, p *Plugin) {
+				encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
+				if _, err := p.Encrypt(ctx, &encryptRequest); err == nil {
+					t.Fatal("exected to timeout")
+				}
+			},
+		},
+		{
+			desc:          "Decrypt",
+			response:      positiveDecryptResponse,
+			pluginTimeout: 1 * time.Second,
+			responseDelay: 3 * time.Second,
+			testFn: func(ctx context.Context, t *testing.T, p *Plugin) {
+				decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte("bar")}
+				if _, err := p.Decrypt(ctx, &decryptRequest); err == nil {
+					t.Fatal("exected to timeout")
+				}
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.desc, func(t *testing.T) {
+			t.Parallel()
+			tt := setUpWithResponses(t, keyName, testCase.responseDelay, testCase.response)
+			defer tt.tearDown()
+
+			ctx, cancel := context.WithTimeout(context.Background(), testCase.pluginTimeout)
+			defer cancel()
+			testCase.testFn(ctx, t, tt.Plugin)
+		})
+	}
+}
+
+func TestSocket(t *testing.T) {
+	tt := setUpWithResponses(t, keyName, 0)
+	defer tt.tearDown()
+
+	fileInfo, err := os.Stat(tt.Plugin.pathToUnixSocket)
+	if err != nil {
+		t.Fatalf("failed to stat socket %q, error %v", tt.Plugin.pathToUnixSocket, err)
+	}
+
+	if (fileInfo.Mode() & os.ModeSocket) != os.ModeSocket {
+		t.Fatalf("got %v, wanted Srwxr-xr-x", fileInfo.Mode())
+	}
+
+	tt.GracefulStop()
+
+	fileInfo, err = os.Stat(tt.Plugin.pathToUnixSocket)
+	if err == nil {
+		t.Fatal("expected socket to be cleaned-up by now.")
+	}
+}
+
+func TestMetricsServer(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	metricsPort := mustServeMetrics(t)
+
+	tt := setUpWithResponses(t, keyName, 0, positiveEncryptResponse)
+	defer tt.tearDown()
+
+	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
+	if _, err := tt.Plugin.Encrypt(ctx, &encryptRequest); err != nil {
+		t.Fatalf("Failed to submit encrypt request to plugin, error %v", err)
+	}
+
+	m, err := scrapeMetrics(metricsPort)
+	if err != nil {
+		t.Fatalf("Failed to scrape metrics, %v", err)
+	}
+	checkForExpectedMetrics(t, m, []string{"roundtrip_latencies"})
+}
+
+func mustServeMetrics(t *testing.T) int {
+	t.Helper()
+	p, err := freeport.GetFreePort()
+	if err != nil {
+		t.Fatalf("Failed to allocate a free port for metrics server, err: %v", err)
+	}
+
+	m := &Metrics{
+		ServingURL: &url.URL{
+			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
+			Path: "metrics",
+		},
+	}
+
+	c := m.Serve()
+	// Giving some time for metrics server to start while listening on the error channel.
+	select {
+	case err := <-c:
+		t.Fatalf("received an error while starting metrics server, error channel: %v", err)
+	// TODO (alextc): Instead of waiting re-try scrapeMetrics call.
+	case <-time.After(5 * time.Second):
+	}
+
+	return p
+}
+
+// scrapeMetrics scrapes Prometheus metrics.
+// From https://github.com/kubernetes/kubernetes/blob/master/test/integration/metrics/metrics_test.go#L40
+func scrapeMetrics(port int) ([]*prometheuspb.MetricFamily, error) {
+	var scrapeRequestHeader = "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=compact-text"
+	u := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort("localhost", strconv.FormatUint(uint64(port), 10)),
+		Path:   "metrics",
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create http request: %v", err)
+	}
+	// Ask the prometheus exporter for its text protocol buffer format, since it's
+	// much easier to parse than its plain-text format. Don't use the serialized
+	// proto representation since it uses a non-standard varint delimiter between
+	// metric families.
+	req.Header.Add("Accept", scrapeRequestHeader)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to contact metrics endpoint of the master: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("non-200 response trying to scrape metrics from the master: %v", resp.Status)
+	}
+
+	// Each line in the response body should contain all the data for a single metric.
+	var metrics []*prometheuspb.MetricFamily
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var metric prometheuspb.MetricFamily
+		if err := proto.UnmarshalText(scanner.Text(), &metric); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal line of metrics response: %v", err)
+		}
+		metrics = append(metrics, &metric)
+	}
+	return metrics, scanner.Err()
+}
+
+func checkForExpectedMetrics(t *testing.T, metrics []*prometheuspb.MetricFamily, expectedMetrics []string) {
+	t.Helper()
+	foundMetrics := make(map[string]bool)
+	for _, metric := range metrics {
+		foundMetrics[metric.GetName()] = true
+	}
+	for _, expected := range expectedMetrics {
+		if _, found := foundMetrics[expected]; !found {
+			t.Errorf("Master metrics did not include expected metric %q\n.Metrics:\n%v", expected, foundMetrics)
 		}
 	}
-
-	return nil
-}
-
-func ExampleEncrypt() {
-	plainText := []byte("secret")
-
-	plugin, err := New(testKeyURI, getSocketAddress(), "")
-	if err != nil {
-		log.Fatalf("failed to instantiate plugin, %v", err)
-	}
-
-	encryptRequest := EncryptRequest{Version: "v1beta1", Plain: []byte(plainText)}
-	encryptResponse, err := plugin.Encrypt(context.Background(), &encryptRequest)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Cipher: %s", string(encryptResponse.Cipher))
-}
-
-func ExampleDecrypt() {
-	cipher := "secret goes here"
-
-	plugin, err := New(testKeyURI, getSocketAddress(), "")
-	if err != nil {
-		log.Fatalf("failed to instantiate plugin, %v", err)
-	}
-
-	decryptRequest := DecryptRequest{Version: "v1beta1", Cipher: []byte(cipher)}
-	decryptResponse, err := plugin.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Plain: %s", string(decryptResponse.Plain))
-}
-
-func getSocketAddress() string {
-	return fmt.Sprintf("@%d", rand.Intn(100000))
 }

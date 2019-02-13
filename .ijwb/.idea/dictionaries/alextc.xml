@@ -2,6 +2,7 @@
   <dictionary name="alextc">
     <words>
       <w>apiserver</w>
+      <w>ciphertext</w>
       <w>cloudkms</w>
       <w>corev</w>
       <w>fakekms</w>
@@ -10,6 +11,7 @@
       <w>kmspb</w>
       <w>kube</w>
       <w>pluginclient</w>
+      <w>prometheuspb</w>
     </words>
   </dictionary>
 </component>
