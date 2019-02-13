@@ -17,6 +17,7 @@ limitations under the License.
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,13 +25,12 @@ import (
 
 	"github.com/golang/glog"
 
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	cloudkms "google.golang.org/api/cloudkms/v1"
+	"google.golang.org/api/cloudkms/v1"
 
-	gcfg "gopkg.in/gcfg.v1"
+	"gopkg.in/gcfg.v1"
 
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 )
@@ -43,7 +43,7 @@ type tokenConfig struct {
 	}
 }
 
-func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
+func NewHTTPClient(ctx context.Context, pathToGCEConf string) (*http.Client, error) {
 	if pathToGCEConf != "" {
 		r, err := os.Open(pathToGCEConf)
 		if err != nil {
@@ -58,7 +58,7 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 
 		if (tokenConfig{} == *c) {
 			glog.Infof("Since TokenConfig contains neither TokenURI nor TokenBody assuming that running on GCE (ex. via kube-up.sh)")
-			return getDefaultClient()
+			return getDefaultClient(ctx)
 		}
 
 		// Running on GKE Hosted Master
@@ -71,11 +71,11 @@ func newHTTPClient(pathToGCEConf string) (*http.Client, error) {
 			return nil, err
 		}
 
-		return oauth2.NewClient(oauth2.NoContext, a), nil
+		return oauth2.NewClient(ctx, a), nil
 	}
 
 	glog.Infof("Path to gce.conf was not supplied - assuming that need to rely on exported service account key.")
-	return getDefaultClient()
+	return getDefaultClient(ctx)
 }
 
 func readConfig(reader io.Reader) (*tokenConfig, error) {
@@ -87,8 +87,7 @@ func readConfig(reader io.Reader) (*tokenConfig, error) {
 	return cfg, nil
 }
 
-func getDefaultClient() (*http.Client, error) {
-	ctx := context.Background()
+func getDefaultClient(ctx context.Context) (*http.Client, error) {
 	client, err := google.DefaultClient(ctx, cloudkms.CloudPlatformScope)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate cloud sdk client: %v", err)

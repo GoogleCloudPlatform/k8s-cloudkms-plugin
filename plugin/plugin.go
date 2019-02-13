@@ -33,7 +33,6 @@ import (
 )
 
 const (
-	// Unix Domain Socket
 	netProtocol    = "unix"
 	apiVersion     = "v1beta1"
 	runtimeName    = "CloudKMS"

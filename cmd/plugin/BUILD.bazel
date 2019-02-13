@@ -4,12 +4,13 @@ load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 # TODO (immutableT) gazelle adds http:/ prefix to importpath which breaks builds.
 go_library(
     name = "go_default_library",
-    srcs = ["k8s-cloud-kms-plugin.go"],
-    importpath = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/cmd/plugin",
+    srcs = ["main.go"],
+    importpath = "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/cmd/plugin",
     visibility = ["//visibility:public"],
     deps = [
         "//plugin:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/google.golang.org/api/cloudkms/v1:go_default_library",
     ],
 )
 

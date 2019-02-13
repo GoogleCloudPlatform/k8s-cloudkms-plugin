@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["kmspluginclient.go"],
-    importpath = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/kmspluginclient",
+    importpath = "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/kmspluginclient",
     visibility = ["//visibility:public"],
     deps = [
         "//plugin:go_default_library",
