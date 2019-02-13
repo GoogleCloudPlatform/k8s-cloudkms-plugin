@@ -11,16 +11,3 @@ go_library(
     importmap = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/vendor/k8s.io/apimachinery/pkg/conversion/queryparams",
     importpath = "k8s.io/apimachinery/pkg/conversion/queryparams",
 )
-
-filegroup(
-    name = "package-srcs",
-    srcs = glob(["**"]),
-    tags = ["automanaged"],
-    visibility = ["//visibility:private"],
-)
-
-filegroup(
-    name = "all-srcs",
-    srcs = [":package-srcs"],
-    tags = ["automanaged"],
-)

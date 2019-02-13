@@ -13,16 +13,3 @@ go_library(
     importpath = "k8s.io/apimachinery/pkg/runtime/schema",
     deps = ["//vendor/github.com/gogo/protobuf/proto:go_default_library"],
 )
-
-filegroup(
-    name = "package-srcs",
-    srcs = glob(["**"]),
-    tags = ["automanaged"],
-    visibility = ["//visibility:private"],
-)
-
-filegroup(
-    name = "all-srcs",
-    srcs = [":package-srcs"],
-    tags = ["automanaged"],
-)

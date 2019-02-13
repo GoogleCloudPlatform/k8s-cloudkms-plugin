@@ -69,6 +69,12 @@ new_local_repository(
     path = "//vendor/github.com/google/gofuzz",
 )
 
+new_local_repository(
+    name = "golgr",
+    build_file = "BUILD.bazel",
+    path = "//vendor/github.com/go-logr/logr",
+)
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()

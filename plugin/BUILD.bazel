@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+# TODO (immutableT) gazelle adds http:/ prefix to importpath which breaks builds.
 
 go_library(
     name = "go_default_library",

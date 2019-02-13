@@ -9,19 +9,3 @@ go_library(
     importpath = "k8s.io/apimachinery/pkg/util/validation",
     deps = ["//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library"],
 )
-
-filegroup(
-    name = "package-srcs",
-    srcs = glob(["**"]),
-    tags = ["automanaged"],
-    visibility = ["//visibility:private"],
-)
-
-filegroup(
-    name = "all-srcs",
-    srcs = [
-        ":package-srcs",
-        "//staging/src/k8s.io/apimachinery/pkg/util/validation/field:all-srcs",
-    ],
-    tags = ["automanaged"],
-)
