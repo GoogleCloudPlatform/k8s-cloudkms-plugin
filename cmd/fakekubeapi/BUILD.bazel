@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/cmd/fakekubeapi",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//testutils/fakekubeapi:go_default_library",
+        "//testutils/kmspluginclient:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "fakekubeapi",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importmap = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/vendor/k8s.io/klog/examples/klogr",
+    importpath = "k8s.io/klog/examples/klogr",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//vendor/k8s.io/klog:go_default_library",
+        "//vendor/k8s.io/klog/klogr:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "klogr",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
