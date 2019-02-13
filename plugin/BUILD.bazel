@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "healthz.go",
         "http_client.go",
         "metrics.go",
         "orchestrator.go",
@@ -25,6 +26,7 @@ go_library(
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/google.golang.org/api/cloudkms/v1:go_default_library",
         "//vendor/gopkg.in/gcfg.v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
         "//vendor/k8s.io/kubernetes/pkg/cloudprovider/providers/gce:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],

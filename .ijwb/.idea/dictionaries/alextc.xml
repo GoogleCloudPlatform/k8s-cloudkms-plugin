@@ -6,6 +6,8 @@
       <w>corev</w>
       <w>fakekms</w>
       <w>fakekubeapi</w>
+      <w>healthz</w>
+      <w>kmspb</w>
       <w>kube</w>
       <w>pluginclient</w>
     </words>
