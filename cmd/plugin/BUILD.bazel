@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build", "docker_push")
 
 # TODO (immutableT) gazelle adds http:/ prefix to importpath which breaks builds.
 go_library(
@@ -29,4 +30,13 @@ go_binary(
 go_image(
     name = "k8s-cloud-kms-plugin-image",
     binary = ":k8s-cloud-kms-plugin",
+)
+
+docker_build(
+    name = "k8s-cloud-kms-plugin-docker",
+    base = "@distroless_static//image",
+    files = [
+        ":k8s-cloud-kms-plugin-image",
+    ],
+    labels = {"maintainer": "Google <alextc@google.com>"},
 )
