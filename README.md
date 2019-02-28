@@ -14,7 +14,7 @@ If you are running Kubernetes on GCE, instruction below should get you started.
 The configuration of the KMS Plugin for CloudKMS could be logically divided into the following stages:  
 * Creating CloudKMS Keys
 * Granting GCE's service account IAM permissions on CloudKMS keys
-* Deploying a docker image of KMS Plugin onto your Kubernetes Master
+* Deploying KMS Plugin binary (or its docker image) of onto your Kubernetes Master
 * Creating Kubernetes encryption configuration
 * Pointing kube-apiserver to the encryption configuration at start-up
 
@@ -97,11 +97,78 @@ gcloud compute instances set-service-account "${MASTER_INSTANCE}" \
    --scopes gke-default, https://www.googleapis.com/auth/cloudkms
 ```
 
-### Deploying a docker image of KMS Plugin onto your Kubernetes Master
+### Deploying KMS Plugin onto your Kubernetes Master
+There are three potential options on how you could deploy KMS Plugin onto your master:
+1. As a go binary
+2. As a docker image
+3. As a [static pod](https://kubernetes.io/docs/tasks/administer-cluster/static-pod/) 
+For the sake of brevity, only the second scenario will be described in this guide, but you should be able to adapt these 
+instructions to your particular environment.
 
-To build:
+For testing purposes, we maintain the latest docker image of the plugin here: gcr.io/cloud-kms-lab/cloud-kms-plugin:dev.  
+Do not use this image in production environment, rather build a local copy and push the result into the repository of 
+your choice.
+Here are the steps to accomplish this:
+- Modify cmd/plugin/BUILD file (specifically the container_push rule) to point to your repository.
+Example:
+```build
+container_push(
+    name = "push",
+    format = "Docker",
+    image = ":k8s-cloud-kms-plugin-docker",
+    registry = "gcr.io",
+    repository = "my-company/cloud-kms-plugin",
+    tag = "0.1",
+)
+```
+- To push the image:
 ```bash
-bazel build cmd/...:all
+ bazel run cmd/plugin:push
 ```
 
+#### Pull the image onto the Master
+The remaining steps need to be performed on Kubernetes Master. Specially on a GCE VM that is running as 
+a service account with the encrypt/decrypt privileges on our target CloudKMS key.
+```bash
+# Replace this with your image.
+IMAGE='gcr.io/cloud-kms-lab/cloud-kms-plugin:dev'
+docker pull "${IMAGE}"
+```
+#### Test the interaction between KMS Plugin and CloudKMS
+We are at the point were we could instruct the KMS Plugin to perform a self-test.
 
+```bash
+FULL_KEY_NAME="projects/${PROJECT}/locations/${KEY_LOCATION}/keyRings/${KEY_RING}/cryptoKeys/${KEY_NAME}"
+SOCKET="tmp/socket.sock"
+PLUGIN_HEALTHZ_PORT=8081
+docker run -d --rm --name="${PLUGIN_CONTAINER_NAME}" \
+    --network="host" \
+    -u "$(id -u "${USER}")":"$(id -g "${USER}")" \
+    -v "${SOCKET_DIR}":"${SOCKET_DIR}":rw \
+    "${IMAGE}" \
+    /k8s-cloud-kms-plugin --logtostderr --integration-test=true --path-to-unix-socket="${SOCKET}" --key-uri="${KEY_NAME}"
+
+# Plugin exposes healthz (by default) on port 8081, by sending the following curl command, the plugin will perform self-test  
+# The self-test includes a "ping" to CloudKMS, where an encrypt/decrypt operation is performed on a test data. 
+curl http://localhost:"${PLUGIN_HEALTHZ_PORT}"/healthz?ping-kms=true
+# You should expect this command to return "OK".
+```
+
+### Configuring kube-apiserver for secrets encryption
+At this stage in your deployment you should leverage K8S documentation on configuring KMS Plugins.
+Concretely, follow steps on how to [create encryption configuration](https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/#encrypting-your-data-with-the-kms-provider)
+Make sure that endpoint property is what your configured for ${SOCKET} variable.
+Example:
+```yaml
+kind: EncryptionConfiguration
+apiVersion: apiserver.config.k8s.io/v1
+resources:
+  - resources:
+    - secrets
+    providers:
+    - kms:
+        name: myKmsPlugin
+        endpoint: unix:///tmp/sock.sock
+        cachesize: 100
+   - identity: {}
+```

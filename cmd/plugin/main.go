@@ -47,7 +47,7 @@ var (
 	metricsPath             = flag.String("metrics-path", "metrics", "Path at which to publish metrics")
 	authTokenRequestTimeout = flag.Duration("token-request-timeout", 5*time.Second, "timeout in seconds for requesting auth token")
 
-	gceConf          = flag.String("gce-config", "/etc/gce.conf", "Path to gce.conf, if running on GKE.")
+	gceConf          = flag.String("gce-config", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/var/run/kmsplugin/socket.sock", "Full path to Unix socket that is used for communicating with KubeAPI Server, or Linux socket namespace object - must start with @")
 
@@ -140,9 +140,4 @@ func mustValidateFlags() {
 		glog.Exitf(" Directory %q portion of path-to-unix-socket flag:%q does not seem to exist.", socketDir, *pathToUnixSocket)
 	}
 	glog.Infof("Communication between KUBE API and KMS Plugin containers will be via %q", *pathToUnixSocket)
-
-	if _, err := os.Stat(*gceConf); err != nil {
-		glog.Exitf("Unable to find GCE Conf:%q, error: %v.", *gceConf, err)
-	}
-	glog.Infof("Using GCE Config: %q.", *gceConf)
 }
