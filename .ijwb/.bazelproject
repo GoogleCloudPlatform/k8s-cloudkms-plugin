@@ -2,7 +2,9 @@ directories:
   .
 
 targets:
-  //...:all
+  //cmd/...:all
+  //plugin:all
+  //testutils/...:all
 
 additional_languages:
   # Uncomment any additional languages you want supported
