@@ -27,6 +27,8 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+# To run the image:
+# $HOME/bin/bazel run cmd/plugin:k8s-cloud-kms-plugin-image
 go_image(
     name = "k8s-cloud-kms-plugin-image",
     binary = ":k8s-cloud-kms-plugin",
@@ -39,4 +41,20 @@ docker_build(
         ":k8s-cloud-kms-plugin-image",
     ],
     labels = {"maintainer": "Google <alextc@google.com>"},
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_push",
+)
+
+# To Push:
+# $HOME/bin/bazel run cmd/plugin:push
+container_push(
+    name = "push",
+    format = "Docker",
+    image = ":k8s-cloud-kms-plugin-docker",
+    registry = "gcr.io",
+    repository = "cloud-kms-lab/cloud-kms-plugin",
+    tag = "dev",
 )
