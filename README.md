@@ -4,7 +4,7 @@ This repo contains an implementation of K8S KMS Plugin for Google CloudKMS, as d
 
 If you are interested in an additional layer of encryption when running Kubernetes on Google Kubernetes Engine (GKE),
 GKE provides this feature out-of-the-box (currently in beta). In other words, you don't need to build, deploy and manage this
-plugin when running on GKE--GKE does all of this for you.  
+plugin when running on GKE - GKE does all of this for you.  
 * See this [blog](https://cloud.google.com/blog/products/containers-kubernetes/exploring-container-security-encrypting-kubernetes-secrets-with-cloud-kms) for more details  
 * Here is a [link](https://cloud.google.com/kubernetes-engine/docs/how-to/encrypting-secrets) to GKE's documentation for this feature
 * We also gave a [talk](https://www.youtube.com/watch?v=rLHJZE2XKl8) about encryption of secrets in Kubernetes at Kubecon China 2017 
@@ -14,9 +14,8 @@ If you are running Kubernetes on GCE, instruction below should get you started.
 The configuration of the KMS Plugin for CloudKMS could be logically divided into the following stages:  
 * Creating CloudKMS Keys
 * Granting GCE's service account IAM permissions on CloudKMS keys
-* Deploying KMS Plugin binary (or its docker image) of onto your Kubernetes Master
-* Creating Kubernetes encryption configuration
-* Pointing kube-apiserver to the encryption configuration at start-up
+* Deploying KMS Plugin binary (or its docker image) to Kubernetes Masters
+* Creating Kubernetes encryption configuration (this last step is common for all KMS Plugins, and is documented [here](https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/#encrypting-your-data-with-the-kms-provider))
 
 This guide makes several assumptions:
 * The Virtual Machine (VM) on which Kubernetes Master is hosted runs in the security context of a dedicated Service Account (as opposed to the
@@ -28,16 +27,16 @@ limit (as much as possible) the scope of these sensitive privileges.
 * KMS Plugin will share the security context of the underlying GCE VM.  
 At the time of this writing (Feb 2019), this is the best option for configuring CloudKMS Plugin on GCE (when compared with creating a dedicated 
 Service Account for the plugin and making the exported service account key available to the plugin). Even though a dedicated service account 
-would allow us to comply with the principle of least privilege by delegating only CloudKMS permissions, doing so breaks the
+would allow us to comply with the principle of least privilege (by delegating only CloudKMS permissions), doing so breaks the
 threat model of KMS Plugin since this forces us to store the exported service account key on disk. Therefore, attackers 
-in possession of the offline image of a K8S Master could decrypt the content of etcd by leveraging the service account stored on the same image.  
+in possession of an offline image of a K8S Master, could decrypt the content of etcd by leveraging the service account stored on the same image.  
 How does GCE's service account avoid this issue? GCE's service accounts request their tokens at runtime from GCE's metadata. 
 Therefore, tokens do need to be stored on disk.  
 Note that GKE Security team is working on an approach where we will be able to create workload specific service account without 
 the drawback of exporting key malarial to disk (stay tuned).
 
-* CloudKMS Keys will be created in the same project where Kubernetes clusters run-this is just to keep things simple, but
-there is not hard requirement for this. On the contrary, in production environments, we recommend to separate key management from
+* CloudKMS Keys will be created in the same project where Kubernetes clusters run - this is just to keep things simple, but
+there is no hard requirement for this. On the contrary, in production environments, we recommend to separate key management from
 cluster management, thus conforming to the principle of separation of duties.
 
 Before proceeding, I recommend setting the following environment variables (adjust them to your environment):
@@ -58,7 +57,7 @@ ZONE='us-central1-a'
 
 ### Creating CloudKMS Key
 
-```bash
+```bashif you could give this a quick read
 gcloud config set project "${PROJECT}"
 # Enable CloudKMS API
 gcloud services enable cloudkms.googleapis.com
@@ -127,7 +126,7 @@ container_push(
 ```
 
 #### Pull the image onto the Master
-The remaining steps need to be performed on Kubernetes Master. Specially on a GCE VM that is running as 
+The remaining steps need to be performed on Kubernetes Master. Specifically, on a GCE VM that is running as 
 a service account with the encrypt/decrypt privileges on our target CloudKMS key.
 ```bash
 # Replace this with your image.
@@ -139,11 +138,11 @@ We are at the point were we could instruct the KMS Plugin to perform a self-test
 
 ```bash
 FULL_KEY_NAME="projects/${PROJECT}/locations/${KEY_LOCATION}/keyRings/${KEY_RING}/cryptoKeys/${KEY_NAME}"
-SOCKET="tmp/socket.sock"
+SOCKET_DIR="/var/kms-plugin"
+SOCKET="${SOCKET_DIR}/socket.sock"
 PLUGIN_HEALTHZ_PORT=8081
-docker run -d --rm --name="${PLUGIN_CONTAINER_NAME}" \
+docker run -d --rm --name=kms-plugin \
     --network="host" \
-    -u "$(id -u "${USER}")":"$(id -g "${USER}")" \
     -v "${SOCKET_DIR}":"${SOCKET_DIR}":rw \
     "${IMAGE}" \
     /k8s-cloud-kms-plugin --logtostderr --integration-test=true --path-to-unix-socket="${SOCKET}" --key-uri="${KEY_NAME}"
@@ -152,6 +151,12 @@ docker run -d --rm --name="${PLUGIN_CONTAINER_NAME}" \
 # The self-test includes a "ping" to CloudKMS, where an encrypt/decrypt operation is performed on a test data. 
 curl http://localhost:"${PLUGIN_HEALTHZ_PORT}"/healthz?ping-kms=true
 # You should expect this command to return "OK".
+
+# kill the container
+docker kill --signal=SIGHUP kms-plugin
+
+# Depending on your deployment strategy setup kms-plugin container to run at-startup.
+
 ```
 
 ### Configuring kube-apiserver for secrets encryption
