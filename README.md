@@ -2,7 +2,7 @@
 
 This repo contains an implementation of a [Kubernetes KMS Plugin][k8s-kms-plugin] for [Cloud KMS][gcp-kms].
 
-**If you are running on Kubernetes Engine (GKE), you do not need this plugin. You can enable Application Layer encryption in GKE (currently in beta) and GKE will manage the communication between GKE and KMS automatically.**
+**If you are running on Kubernetes Engine (GKE), you do not need this plugin. You can enable [Application Layer encryption][gke-secrets-docs] in GKE (currently in beta) and GKE will manage the communication between GKE and KMS automatically.**
 
 
 ## Use with Compute Engine
@@ -88,11 +88,11 @@ Grant the dedicated service account permission to encrypt/decrypt data using the
 
 ```sh
 $ gcloud kms keys add-iam-policy-binding "${KMS_KEY_NAME}" \
-  --project "${PROJECT_ID}" \
-  --location "${KMS_LOCATION}" \
-  --keyring "${KMS_KEY_RING}" \
-  --member "serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
-  --role "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+    --project "${PROJECT_ID}" \
+    --location "${KMS_LOCATION}" \
+    --keyring "${KMS_KEY_RING}" \
+    --member "serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+    --role "roles/cloudkms.cryptoKeyEncrypterDecrypter"
 ```
 
 In addition to the IAM permissions, you also need to increase the oauth scopes on the VM. The following command assumes your VM master nodes require the `gke-default` scopes. If that is not the case, alter the command accordingly. Replace "my-master-instance" with the name of your VM:
@@ -134,7 +134,7 @@ For the sake of brevity, only the first scenario is covered. For **testing purpo
     )
     ```
 
-2. Build and push the image
+1. Build and push the image
 
     ```sh
     $ bazel run cmd/plugin:push
