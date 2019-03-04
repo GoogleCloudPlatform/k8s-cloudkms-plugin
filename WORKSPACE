@@ -42,7 +42,7 @@ new_local_repository(
 new_local_repository(
     name = "cmp",
     build_file = "BUILD.bazel",
-    path = "//vendor/google/go-cmp/cmp",
+    path = "//vendor/github.com/google/go-cmp/cmp",
 )
 
 new_local_repository(
