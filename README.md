@@ -19,7 +19,7 @@ The configuration of the KMS Plugin for CloudKMS could be logically divided into
 
 This guide makes several assumptions:
 * The Virtual Machine (VM) on which Kubernetes Master is hosted runs in the security context of a dedicated Service Account (as opposed to the
-[default GCE service account](https://cloud.google.com/compute/docs/access/service-accounts#compute_engine_default_service_account).
+[default GCE service account](https://cloud.google.com/compute/docs/access/service-accounts#compute_engine_default_service_account)).
 For details on how to configure a GCE VM with a dedicated service account see this [link](https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances).
 This is an important point since such accounts will be granted encrypt/decrypt permissions on CloudKMS keys and we would like to 
 limit (as much as possible) the scope of these sensitive privileges.
