@@ -43,9 +43,8 @@ var (
 	healthzPath    = flag.String("healthz-path", "healthz", "Path at which to publish healthz")
 	healthzTimeout = flag.Duration("healthz-timeout", 5*time.Second, "timeout in seconds for communicating with the unix socket")
 
-	metricsPort             = flag.Int("metrics-port", 8082, "Port on which to publish metrics")
-	metricsPath             = flag.String("metrics-path", "metrics", "Path at which to publish metrics")
-	authTokenRequestTimeout = flag.Duration("token-request-timeout", 5*time.Second, "timeout in seconds for requesting auth token")
+	metricsPort = flag.Int("metrics-port", 8082, "Port on which to publish metrics")
+	metricsPath = flag.String("metrics-path", "metrics", "Path at which to publish metrics")
 
 	gceConf          = flag.String("gce-config", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
@@ -59,16 +58,16 @@ var (
 func main() {
 	mustValidateFlags()
 
-	ctx, cancel := context.WithTimeout(context.Background(), *authTokenRequestTimeout)
-	defer cancel()
-
 	var (
 		httpClient = http.DefaultClient
 		err        error
 	)
 
 	if !*integrationTest {
-		httpClient, err = plugin.NewHTTPClient(ctx, *gceConf)
+		// httpClient should be constructed with context.Background. Sending a context with
+		// timeout or deadline will cause subsequent calls via the client to fail once the timeout or
+		// deadline is triggered. Instead, the plugin supplies a context per individual calls.
+		httpClient, err = plugin.NewHTTPClient(context.Background(), *gceConf)
 		if err != nil {
 			glog.Exitf("failed to instantiate http httpClient: %v", err)
 		}
