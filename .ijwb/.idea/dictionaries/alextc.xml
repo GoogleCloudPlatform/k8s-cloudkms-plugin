@@ -1,23 +1,8 @@
 <component name="ProjectDictionaryState">
   <dictionary name="alextc">
     <words>
-      <w>apiserver</w>
-      <w>ciphertext</w>
-      <w>cloudkms</w>
-      <w>corev</w>
-      <w>etcd</w>
-      <w>fakekms</w>
-      <w>fakekubeapi</w>
-      <w>gserviceaccount</w>
-      <w>healthz</w>
-      <w>heathz</w>
-      <w>kmspb</w>
-      <w>kmsplugin</w>
-      <w>kube</w>
-      <w>kubecon</w>
-      <w>metav</w>
-      <w>pluginclient</w>
-      <w>prometheuspb</w>
+      <w>priv</w>
+      <w>tpmrm</w>
     </words>
   </dictionary>
 </component>

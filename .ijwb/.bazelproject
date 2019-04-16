@@ -4,6 +4,7 @@ directories:
 targets:
   //cmd/...:all
   //plugin:all
+  //tpm:all
   //testutils/...:all
 
 additional_languages:

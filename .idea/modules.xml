@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/k8s-cloudkms-plugin.iml" filepath="$PROJECT_DIR$/.idea/k8s-cloudkms-plugin.iml" />
       <module fileurl="file://$PROJECT_DIR$/k8s-cloudkms-plugin.iml" filepath="$PROJECT_DIR$/k8s-cloudkms-plugin.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/k8s-cloudkms-plugin.iml" filepath="$PROJECT_DIR$/.idea/k8s-cloudkms-plugin.iml" />
     </modules>
   </component>
 </project>
