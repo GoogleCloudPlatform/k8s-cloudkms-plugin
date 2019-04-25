@@ -47,16 +47,14 @@ var (
 	}
 )
 
-func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSeal []byte) (privateArea, publicArea []byte, retErr error) {
+func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSeal []byte) ([]byte, []byte, error) {
 	// Open the TPM
 	rwc, err := tpm2.OpenTPM(tpmPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open TPM %q: %v", tpmPath, err)
 	}
 	defer func() {
-		if err := rwc.Close(); err != nil {
-			retErr = fmt.Errorf("%v\ncan't close TPM %q: %v", retErr, tpmPath, err)
-		}
+		rwc.Close()
 	}()
 
 	// Create the parent key against which to seal the data
@@ -65,9 +63,7 @@ func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSea
 		return nil, nil, fmt.Errorf("can't create primary key: %v", err)
 	}
 	defer func() {
-		if err := tpm2.FlushContext(rwc, srkHandle); err != nil {
-			retErr = fmt.Errorf("%v\nunable to flush SRK handle %q: %v", retErr, srkHandle, err)
-		}
+		tpm2.FlushContext(rwc, srkHandle)
 	}()
 	glog.Infof("Created parent key with handle: 0x%x\n", srkHandle)
 
@@ -89,8 +85,8 @@ func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSea
 	glog.Infof("Created authorization policy: 0x%x\n", policy)
 
 	// Seal the data to the parent key and the policy
-	privateArea, publicArea, retErr = tpm2.Seal(rwc, srkHandle, srkPassword, objectPassword, policy, dataToSeal)
-	if retErr != nil {
+	privateArea, publicArea, err := tpm2.Seal(rwc, srkHandle, srkPassword, objectPassword, policy, dataToSeal)
+	if err != nil {
 		return nil, nil, fmt.Errorf("unable to seal data: %v", err)
 	}
 	glog.Infof("Sealed data: 0x%x\n", privateArea)
@@ -99,16 +95,14 @@ func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSea
 }
 
 // Returns the unsealed data
-func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, privateArea, publicArea []byte) (data []byte, retErr error) {
+func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, privateArea, publicArea []byte) ([]byte, error) {
 	// Open the TPM
 	rwc, err := tpm2.OpenTPM(tpmPath)
 	if err != nil {
 		return nil, fmt.Errorf("can't open TPM %q: %v", tpmPath, err)
 	}
 	defer func() {
-		if err := rwc.Close(); err != nil {
-			retErr = fmt.Errorf("%v\ncan't close TPM %q: %v", retErr, tpmPath, err)
-		}
+		rwc.Close()
 	}()
 
 	// Create the parent key against which to seal the data
@@ -117,9 +111,7 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 		return nil, fmt.Errorf("can't create primary key: %v", err)
 	}
 	defer func() {
-		if err := tpm2.FlushContext(rwc, srkHandle); err != nil {
-			retErr = fmt.Errorf("%v\nunable to flush SRK handle %q: %v", retErr, srkHandle, err)
-		}
+		tpm2.FlushContext(rwc, srkHandle)
 	}()
 	glog.Infof("Created parent key with handle: 0x%x\n", srkHandle)
 
@@ -129,9 +121,7 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 		return nil, fmt.Errorf("unable to load data: %v", err)
 	}
 	defer func() {
-		if err := tpm2.FlushContext(rwc, objectHandle); err != nil {
-			retErr = fmt.Errorf("%v\nunable to flush object handle %q: %v", retErr, objectHandle, err)
-		}
+		tpm2.FlushContext(rwc, objectHandle)
 	}()
 	glog.Infof("Loaded sealed data with handle: 0x%x\n", objectHandle)
 
@@ -141,9 +131,7 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 		return nil, fmt.Errorf("unable to get auth session: %v", err)
 	}
 	defer func() {
-		if err := tpm2.FlushContext(rwc, sessHandle); err != nil {
-			retErr = fmt.Errorf("%v\nunable to flush session: %v", retErr, err)
-		}
+		tpm2.FlushContext(rwc, sessHandle)
 	}()
 
 	// Unseal the data
@@ -155,7 +143,7 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 }
 
 // Returns session handle and policy digest.
-func policyPCRPasswordSession(rwc io.ReadWriteCloser, pcr int, password string) (sessHandle tpmutil.Handle, policy []byte, retErr error) {
+func policyPCRPasswordSession(rwc io.ReadWriteCloser, pcr int, password string) (tpmutil.Handle, []byte, error) {
 	// FYI, this is not a very secure session.
 	sessHandle, _, err := tpm2.StartAuthSession(
 		rwc,
@@ -170,10 +158,8 @@ func policyPCRPasswordSession(rwc io.ReadWriteCloser, pcr int, password string) 
 		return tpm2.HandleNull, nil, fmt.Errorf("unable to start session: %v", err)
 	}
 	defer func() {
-		if sessHandle != tpm2.HandleNull && err != nil {
-			if err := tpm2.FlushContext(rwc, sessHandle); err != nil {
-				retErr = fmt.Errorf("%v\nunable to flush session: %v", retErr, err)
-			}
+		if sessHandle != tpm2.HandleNull {
+			tpm2.FlushContext(rwc, sessHandle)
 		}
 	}()
 
@@ -191,7 +177,7 @@ func policyPCRPasswordSession(rwc io.ReadWriteCloser, pcr int, password string) 
 		return sessHandle, nil, fmt.Errorf("unable to require password for auth policy: %v", err)
 	}
 
-	policy, err = tpm2.PolicyGetDigest(rwc, sessHandle)
+	policy, err := tpm2.PolicyGetDigest(rwc, sessHandle)
 	if err != nil {
 		return sessHandle, nil, fmt.Errorf("unable to get policy digest: %v", err)
 	}
