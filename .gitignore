@@ -3,4 +3,4 @@ bazel-genfiles/*
 bazel-k8s-cloudkms-plugin/*
 bazel-out/*
 bazel-testlogs/*
-
+.idea
