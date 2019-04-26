@@ -56,6 +56,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	mustValidateFlags()
 
 	var (

@@ -75,6 +75,12 @@ new_local_repository(
     path = "//vendor/github.com/go-logr/logr",
 )
 
+new_local_repository(
+    name = "gotpm",
+    build_file = "BUILD.bazel",
+    path = "//vendor/github.com/google/go-tpm",
+)
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()

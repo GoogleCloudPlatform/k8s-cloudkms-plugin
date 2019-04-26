@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["credential_activation.go"],
+    importmap = "https:/github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/vendor/github.com/google/go-tpm/tpm2/credactivation",
+    importpath = "github.com/google/go-tpm/tpm2/credactivation",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/go-tpm/tpm2:go_default_library",
+        "//vendor/github.com/google/go-tpm/tpmutil:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["credential_activation_test.go"],
+    embed = [":go_default_library"],
+    deps = ["//vendor/github.com/google/go-tpm/tpm2:go_default_library"],
+)
