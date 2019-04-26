@@ -1,4 +1,4 @@
-// Copyright (c) 2018, Google LLC All rights reserved.
+// Copyright (c) 2019, Google LLC All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,24 +47,21 @@ var (
 	}
 )
 
+// Seal seals supplied data to TPM using PCRs and password.
 func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSeal []byte) ([]byte, []byte, error) {
-	// Open the TPM
 	rwc, err := tpm2.OpenTPM(tpmPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open TPM %q: %v", tpmPath, err)
 	}
-	defer func() {
-		rwc.Close()
-	}()
+	defer rwc.Close()
 
 	// Create the parent key against which to seal the data
 	srkHandle, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", srkPassword, srkTemplate)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't create primary key: %v", err)
 	}
-	defer func() {
-		tpm2.FlushContext(rwc, srkHandle)
-	}()
+	defer tpm2.FlushContext(rwc, srkHandle)
+
 	glog.Infof("Created parent key with handle: 0x%x\n", srkHandle)
 
 	// Note the value of the pcr against which we will seal the data
@@ -94,25 +91,21 @@ func Seal(tpmPath string, pcr int, srkPassword, objectPassword string, dataToSea
 	return privateArea, publicArea, nil
 }
 
-// Returns the unsealed data
+// Unseal unseals data from TPM based on PCRs and password defined by the polic attached to the protected object.
 func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, privateArea, publicArea []byte) ([]byte, error) {
-	// Open the TPM
 	rwc, err := tpm2.OpenTPM(tpmPath)
 	if err != nil {
 		return nil, fmt.Errorf("can't open TPM %q: %v", tpmPath, err)
 	}
-	defer func() {
-		rwc.Close()
-	}()
+	defer rwc.Close()
 
 	// Create the parent key against which to seal the data
 	srkHandle, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", srkPassword, srkTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("can't create primary key: %v", err)
 	}
-	defer func() {
-		tpm2.FlushContext(rwc, srkHandle)
-	}()
+	defer tpm2.FlushContext(rwc, srkHandle)
+
 	glog.Infof("Created parent key with handle: 0x%x\n", srkHandle)
 
 	// Load the sealed data into the TPM.
@@ -120,9 +113,8 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 	if err != nil {
 		return nil, fmt.Errorf("unable to load data: %v", err)
 	}
-	defer func() {
-		tpm2.FlushContext(rwc, objectHandle)
-	}()
+	defer tpm2.FlushContext(rwc, objectHandle)
+
 	glog.Infof("Loaded sealed data with handle: 0x%x\n", objectHandle)
 
 	// Create the authorization session
@@ -130,9 +122,9 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 	if err != nil {
 		return nil, fmt.Errorf("unable to get auth session: %v", err)
 	}
-	defer func() {
-		tpm2.FlushContext(rwc, sessHandle)
-	}()
+	if err := tpm2.FlushContext(rwc, sessHandle); err != nil {
+		return nil, fmt.Errorf("unable to flush session: %v", err)
+	}
 
 	// Unseal the data
 	unsealedData, err := tpm2.UnsealWithSession(rwc, sessHandle, objectHandle, objectPassword)
@@ -157,11 +149,6 @@ func policyPCRPasswordSession(rwc io.ReadWriteCloser, pcr int, password string) 
 	if err != nil {
 		return tpm2.HandleNull, nil, fmt.Errorf("unable to start session: %v", err)
 	}
-	defer func() {
-		if sessHandle != tpm2.HandleNull {
-			tpm2.FlushContext(rwc, sessHandle)
-		}
-	}()
 
 	pcrSelection := tpm2.PCRSelection{
 		Hash: tpm2.AlgSHA256,
