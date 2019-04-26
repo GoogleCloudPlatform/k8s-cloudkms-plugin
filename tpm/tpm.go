@@ -122,9 +122,7 @@ func Unseal(tpmPath string, pcr int, srkPassword, objectPassword string, private
 	if err != nil {
 		return nil, fmt.Errorf("unable to get auth session: %v", err)
 	}
-	if err := tpm2.FlushContext(rwc, sessHandle); err != nil {
-		return nil, fmt.Errorf("unable to flush session: %v", err)
-	}
+	defer tpm2.FlushContext(rwc, sessHandle)
 
 	// Unseal the data
 	unsealedData, err := tpm2.UnsealWithSession(rwc, sessHandle, objectHandle, objectPassword)
