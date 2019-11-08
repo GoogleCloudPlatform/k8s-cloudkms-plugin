@@ -3,20 +3,40 @@
 package tpmutil
 
 import (
+	"fmt"
 	"os"
-
-	"golang.org/x/sys/unix"
+	"syscall"
+	"unsafe"
 )
 
-// Poll blocks until the file descriptior is ready for reading or an error occurs.
+type pollFD struct {
+	fd      int32
+	events  int16
+	revents int16
+}
+
+// poll blocks until the file descriptior is ready for reading or an error occurs.
 func poll(f *os.File) error {
-	const (
-		events  = 0x001 // POLLIN
-		timeout = -1    // TSS2_TCTI_TIMEOUT_BLOCK=-1; block indefinitely until data is available
+	var (
+		fd = &pollFD{
+			fd:     int32(f.Fd()),
+			events: 0x1, // POLLIN
+		}
+		numFD     = 1
+		timeoutMS = -1 // Do not set a timeout
 	)
-	pollFds := []unix.PollFd{
-		{Fd: int32(f.Fd()), Events: events},
+	_, _, errno := syscall.Syscall(syscall.SYS_POLL, uintptr(unsafe.Pointer(fd)), uintptr(numFD), uintptr(timeoutMS))
+	// Convert errno into an error, otherwise err != nil checks up the stack
+	// will hit unexpectedly on 0 errno.
+	var err error
+	if errno != 0 {
+		err = errno
+		return err
 	}
-	_, err := unix.Poll(pollFds, timeout)
-	return err
+	// revents is filled in by the kernel.
+	// If the expected event happened, revents should match events.
+	if fd.revents != fd.events {
+		return fmt.Errorf("unexpected poll revents 0x%x", fd.revents)
+	}
+	return nil
 }
