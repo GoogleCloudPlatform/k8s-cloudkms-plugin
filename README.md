@@ -2,7 +2,7 @@
 
 This repo contains an implementation of a [Kubernetes KMS Plugin][k8s-kms-plugin] for [Cloud KMS][gcp-kms].
 
-**If you are running on Kubernetes Engine (GKE), you do not need this plugin. You can enable [Application-layer Secrets Encryption][gke-secrets-docs] in GKE (currently in beta) and GKE will manage the communication between GKE and KMS automatically.**
+**If you are running on Kubernetes Engine (GKE), you do not need this plugin. You can enable [Application-layer Secrets Encryption][gke-secrets-docs] and GKE will manage the communication between GKE and KMS automatically.**
 
 
 ## Use with Compute Engine
