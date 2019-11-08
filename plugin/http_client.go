@@ -31,8 +31,6 @@ import (
 	"google.golang.org/api/cloudkms/v1"
 
 	"gopkg.in/gcfg.v1"
-
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 )
 
 // tokenConfig represents attributes found in gce.conf - only attributes of the interest of this plugin are listed.
@@ -63,7 +61,7 @@ func NewHTTPClient(ctx context.Context, pathToGCEConf string) (*http.Client, err
 
 		// Running on GKE Hosted Master
 		glog.Infof("TokenURI:%s, TokenBody:%s - assuming that running on a Hosted Master - GKE.", c.Global.TokenURL, c.Global.TokenBody)
-		a := gce.NewAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
+		a := newAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
 
 		// TODO: Do I need to call a.Token to get access token here?
 		if _, err := a.Token(); err != nil {
