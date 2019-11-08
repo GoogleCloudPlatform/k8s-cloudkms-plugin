@@ -149,7 +149,7 @@ For the sake of brevity, only the first scenario is covered. For **testing purpo
 $ docker pull "gcr.io/cloud-kms-lab/cloud-kms-plugin:dev"
 ```
 
-#### Test the interaction between KMS Plugin and CloudKMS
+#### Test the interaction between KMS Plugin and Cloud KMS
 
 **On the Kubernetes master VM**, instruct the KMS plugin to perform a self-test. First, set some environment variables:
 
