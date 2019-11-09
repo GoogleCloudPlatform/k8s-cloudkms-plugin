@@ -119,7 +119,7 @@ func (f *Server) recordTestIAMRequest(r *cloudkms.TestIamPermissionsRequest) {
 // keyName simulates CloudKMS' keyName and is taken into account when calculating expected URL endpoints.
 func NewWithPipethrough(keyName string, port int) (*Server, error) {
 	handle := func(req json.Marshaler) (json.Marshaler, int, error) {
-		glog.Infof("Processing request: %#v", req, req)
+		glog.Infof("Processing request: %#v", req)
 
 		switch r := req.(type) {
 		case *cloudkms.EncryptRequest:

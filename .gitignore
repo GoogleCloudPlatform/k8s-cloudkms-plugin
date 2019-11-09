@@ -1,6 +1,3 @@
-bazel-bin
-bazel-genfiles
-bazel-k8s-cloudkms-plugin
-bazel-out
-bazel-testlogs
+.ijwb
 .idea
+build/
