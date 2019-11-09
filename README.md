@@ -116,37 +116,32 @@ $ gcloud compute instances start "my-master-instance"
 There are a few options for deploying the KMS plugin into a Kubernetes cluster:
 
 1. As a Docker image
+
+    A pre-built image is available at:
+
+    ```text
+    gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:$TAG
+    ```
+
+    where `TAG` refers to a published git tag or "latest" for builds off the master branch. You can also build and publish your own image by cloning this repository and running:
+
+    ```sh
+    $ gcloud builds submit \
+        --tag gcr.io/$PROJECT_ID/k8s-cloudkms-plugin \
+        .
+    ```
+
 1. As a Go binary
 1. As a [static pod][k8s-static-pod]
 
-For the sake of brevity, only the first scenario is covered. For **testing purposes only**, a public Docker image exists at `gcr.io/cloud-kms-lab/cloud-kms-plugin:dev`. **Do not use this image in a production environment.** Instead, build you own local copy and push the image to a repository of your choice:
-
-1. Modify the `cmd/plugin/BUILD` file's `container_push` rule to point to your repository:
-
-    ```sh
-    container_push(
-        name = "push",
-        format = "Docker",
-        image = ":k8s-cloud-kms-plugin-docker",
-        registry = "gcr.io",
-        repository = "my-company/cloud-kms-plugin",
-        tag = "0.1",
-    )
-    ```
-
-1. Build and push the image
-
-    ```sh
-    $ bazel run cmd/plugin:push
-    ```
 
 #### Pull image onto master VMs
 
 **On the Kubernetes master VM**, run the following command to pull the Docker image. Replace the URL with your repository's URL:
 
 ```sh
-# Replace this with your image
-$ docker pull "gcr.io/cloud-kms-lab/cloud-kms-plugin:dev"
+# Pick a tag and pin to that tag
+$ docker pull "gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:1.2.3"
 ```
 
 #### Test the interaction between KMS Plugin and Cloud KMS
@@ -158,7 +153,7 @@ KMS_FULL_KEY="projects/${PROJECT_ID}/locations/${KMS_LOCATION}/keyRings/${KMS_KE
 SOCKET_DIR="/var/kms-plugin"
 SOCKET_PATH="${SOCKET_DIR}/socket.sock"
 PLUGIN_HEALTHZ_PORT="8081"
-PLUGIN_IMAGE="gcr.io/cloud-kms-lab/cloud-kms-plugin:dev" # Replace with your value
+PLUGIN_IMAGE="gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:1.2.3" # Pick a tag
 ```
 
 Start the container:
@@ -169,9 +164,9 @@ $ docker run \
     --network="host" \
     --detach \
     --rm \
-    --volume "${SOCKET_DIR}:${SOCKET_DIR}:rw" \
+    --volume "${SOCKET_DIR}:/var/run/kmsplugin:rw" \
     "${PLUGIN_IMAGE}" \
-      /k8s-cloud-kms-plugin \
+      /bin/k8s-cloudkms-plugin \
         --logtostderr \
         --integration-test="true" \
         --path-to-unix-socket="${SOCKET_PATH}" \
