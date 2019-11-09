@@ -1,18 +1,16 @@
-/*
-Copyright 2018 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package plugin
 
@@ -33,6 +31,7 @@ import (
 
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
@@ -91,8 +90,10 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 		t.Fatalf("Failed to create socket file, error: %v", err)
 	}
 
+	ctx := context.Background()
 	waitForPluginStart := 3 * time.Second
-	fakeKMSKeyService, err := cloudkms.New(fakeKMSSrv.Client())
+	fakeKMSKeyService, err := cloudkms.NewService(ctx,
+		option.WithHTTPClient(fakeKMSSrv.Client()))
 	if err != nil {
 		t.Fatalf("failed to instantiate cloud kms httpClient: %v", err)
 	}
@@ -112,15 +113,6 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
 	t.Helper()
 	fakeKMSSrv, err := fakekms.NewWithResponses(keyName, 0, delay, responses...)
-	if err != nil {
-		t.Fatalf("Failed to construct FakeKMS, error: %v", err)
-	}
-	return setUp(t, fakeKMSSrv, keyName)
-}
-
-func setUpWithPipethrough(t *testing.T, keyName string) *pluginTestCase {
-	t.Helper()
-	fakeKMSSrv, err := fakekms.NewWithPipethrough(keyName, 0)
 	if err != nil {
 		t.Fatalf("Failed to construct FakeKMS, error: %v", err)
 	}
@@ -168,8 +160,10 @@ func TestEncrypt(t *testing.T) {
 
 	for _, testCase := range testCases {
 		testCase := testCase
+
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
+
 			tt := setUpWithResponses(t, keyName, 0, testCase.response)
 			defer tt.tearDown()
 
@@ -188,6 +182,7 @@ func TestEncrypt(t *testing.T) {
 
 func TestGatherMetrics(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		desc     string
 		testFn   func(t *testing.T, p *Plugin)
@@ -260,8 +255,10 @@ func TestGatherMetrics(t *testing.T) {
 
 	for _, testCase := range testCases {
 		testCase := testCase
+
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
+
 			tt := setUpWithResponses(t, keyName, 0, testCase.response)
 			defer tt.tearDown()
 			testCase.testFn(t, tt.Plugin)
@@ -277,6 +274,7 @@ func TestGatherMetrics(t *testing.T) {
 
 func TestKMSTimeout(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		desc          string
 		response      json.Marshaler
@@ -312,8 +310,10 @@ func TestKMSTimeout(t *testing.T) {
 
 	for _, testCase := range testCases {
 		testCase := testCase
+
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
+
 			tt := setUpWithResponses(t, keyName, testCase.responseDelay, testCase.response)
 			defer tt.tearDown()
 
@@ -325,6 +325,8 @@ func TestKMSTimeout(t *testing.T) {
 }
 
 func TestSocket(t *testing.T) {
+	t.Parallel()
+
 	tt := setUpWithResponses(t, keyName, 0)
 	defer tt.tearDown()
 
@@ -339,14 +341,14 @@ func TestSocket(t *testing.T) {
 
 	tt.GracefulStop()
 
-	fileInfo, err = os.Stat(tt.Plugin.pathToUnixSocket)
-	if err == nil {
+	if _, err := os.Stat(tt.Plugin.pathToUnixSocket); err == nil {
 		t.Fatal("expected socket to be cleaned-up by now.")
 	}
 }
 
 func TestMetricsServer(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 	metricsPort := mustServeMetrics(t)
 
