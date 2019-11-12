@@ -1,18 +1,16 @@
-/*
-Copyright 2018 Google LLC
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- https://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-*/
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Binary kmsplugin - entry point into kms-plugin. See go/gke-secrets-encryption-design for details.
 package main
@@ -31,11 +29,10 @@ import (
 	"syscall"
 	"time"
 
-	"google.golang.org/api/cloudkms/v1"
-
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
-
 	"github.com/golang/glog"
+	"google.golang.org/api/cloudkms/v1"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -74,7 +71,8 @@ func main() {
 		}
 	}
 
-	kms, err := cloudkms.New(httpClient)
+	ctx := context.Background()
+	kms, err := cloudkms.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		glog.Exitf("failed to instantiate cloud kms httpClient: %v", err)
 	}
