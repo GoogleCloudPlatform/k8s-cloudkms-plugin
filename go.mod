@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.47.0 // indirect
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.2
@@ -14,9 +14,8 @@ require (
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	go.opencensus.io v0.22.2 // indirect
-	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sys v0.0.0-20191105231009-c1f44814a5cd // indirect
 	google.golang.org/api v0.13.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20191108220845-16a3f7862a1a // indirect
