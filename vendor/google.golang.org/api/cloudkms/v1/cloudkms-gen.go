@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2023 Google LLC.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,35 +10,35 @@
 //
 // For product documentation, see: https://cloud.google.com/kms/
 //
-// Creating a client
+// # Creating a client
 //
 // Usage example:
 //
-//   import "google.golang.org/api/cloudkms/v1"
-//   ...
-//   ctx := context.Background()
-//   cloudkmsService, err := cloudkms.NewService(ctx)
+//	import "google.golang.org/api/cloudkms/v1"
+//	...
+//	ctx := context.Background()
+//	cloudkmsService, err := cloudkms.NewService(ctx)
 //
 // In this example, Google Application Default Credentials are used for authentication.
 //
 // For information on how to create and obtain Application Default Credentials, see https://developers.google.com/identity/protocols/application-default-credentials.
 //
-// Other authentication options
+// # Other authentication options
 //
 // By default, all available scopes (see "Constants") are used to authenticate. To restrict scopes, use option.WithScopes:
 //
-//   cloudkmsService, err := cloudkms.NewService(ctx, option.WithScopes(cloudkms.CloudkmsScope))
+//	cloudkmsService, err := cloudkms.NewService(ctx, option.WithScopes(cloudkms.CloudkmsScope))
 //
 // To use an API key for authentication (note: some APIs do not support API keys), use option.WithAPIKey:
 //
-//   cloudkmsService, err := cloudkms.NewService(ctx, option.WithAPIKey("AIza..."))
+//	cloudkmsService, err := cloudkms.NewService(ctx, option.WithAPIKey("AIza..."))
 //
 // To use an OAuth token (e.g., a user token obtained via a three-legged OAuth flow), use option.WithTokenSource:
 //
-//   config := &oauth2.Config{...}
-//   // ...
-//   token, err := config.Exchange(ctx, ...)
-//   cloudkmsService, err := cloudkms.NewService(ctx, option.WithTokenSource(config.TokenSource(ctx, token)))
+//	config := &oauth2.Config{...}
+//	// ...
+//	token, err := config.Exchange(ctx, ...)
+//	cloudkmsService, err := cloudkms.NewService(ctx, option.WithTokenSource(config.TokenSource(ctx, token)))
 //
 // See https://godoc.org/google.golang.org/api/option/ for details on options.
 package cloudkms // import "google.golang.org/api/cloudkms/v1"
@@ -56,8 +56,10 @@ import (
 	"strings"
 
 	googleapi "google.golang.org/api/googleapi"
+	internal "google.golang.org/api/internal"
 	gensupport "google.golang.org/api/internal/gensupport"
 	option "google.golang.org/api/option"
+	internaloption "google.golang.org/api/option/internaloption"
 	htransport "google.golang.org/api/transport/http"
 )
 
@@ -74,15 +76,18 @@ var _ = googleapi.Version
 var _ = errors.New
 var _ = strings.Replace
 var _ = context.Canceled
+var _ = internaloption.WithDefaultEndpoint
 
 const apiId = "cloudkms:v1"
 const apiName = "cloudkms"
 const apiVersion = "v1"
 const basePath = "https://cloudkms.googleapis.com/"
+const mtlsBasePath = "https://cloudkms.mtls.googleapis.com/"
 
 // OAuth2 scopes used by this API.
 const (
-	// View and manage your data across Google Cloud Platform services
+	// See, edit, configure, and delete your Google Cloud data and see the
+	// email address for your Google Account.
 	CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 
 	// View and manage your keys and secrets stored in Cloud Key Management
@@ -92,12 +97,14 @@ const (
 
 // NewService creates a new Service.
 func NewService(ctx context.Context, opts ...option.ClientOption) (*Service, error) {
-	scopesOption := option.WithScopes(
+	scopesOption := internaloption.WithDefaultScopes(
 		"https://www.googleapis.com/auth/cloud-platform",
 		"https://www.googleapis.com/auth/cloudkms",
 	)
 	// NOTE: prepend, so we don't override user-specified scopes.
 	opts = append([]option.ClientOption{scopesOption}, opts...)
+	opts = append(opts, internaloption.WithDefaultEndpoint(basePath))
+	opts = append(opts, internaloption.WithDefaultMTLSEndpoint(mtlsBasePath))
 	client, endpoint, err := htransport.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -155,6 +162,8 @@ type ProjectsService struct {
 
 func NewProjectsLocationsService(s *Service) *ProjectsLocationsService {
 	rs := &ProjectsLocationsService{s: s}
+	rs.EkmConfig = NewProjectsLocationsEkmConfigService(s)
+	rs.EkmConnections = NewProjectsLocationsEkmConnectionsService(s)
 	rs.KeyRings = NewProjectsLocationsKeyRingsService(s)
 	return rs
 }
@@ -162,7 +171,29 @@ func NewProjectsLocationsService(s *Service) *ProjectsLocationsService {
 type ProjectsLocationsService struct {
 	s *Service
 
+	EkmConfig *ProjectsLocationsEkmConfigService
+
+	EkmConnections *ProjectsLocationsEkmConnectionsService
+
 	KeyRings *ProjectsLocationsKeyRingsService
+}
+
+func NewProjectsLocationsEkmConfigService(s *Service) *ProjectsLocationsEkmConfigService {
+	rs := &ProjectsLocationsEkmConfigService{s: s}
+	return rs
+}
+
+type ProjectsLocationsEkmConfigService struct {
+	s *Service
+}
+
+func NewProjectsLocationsEkmConnectionsService(s *Service) *ProjectsLocationsEkmConnectionsService {
+	rs := &ProjectsLocationsEkmConnectionsService{s: s}
+	return rs
+}
+
+type ProjectsLocationsEkmConnectionsService struct {
+	s *Service
 }
 
 func NewProjectsLocationsKeyRingsService(s *Service) *ProjectsLocationsKeyRingsService {
@@ -214,16 +245,31 @@ type ProjectsLocationsKeyRingsImportJobsService struct {
 // KeyManagementService.AsymmetricDecrypt.
 type AsymmetricDecryptRequest struct {
 	// Ciphertext: Required. The data encrypted with the named
-	// CryptoKeyVersion's public
-	// key using OAEP.
+	// CryptoKeyVersion's public key using OAEP.
 	Ciphertext string `json:"ciphertext,omitempty"`
+
+	// CiphertextCrc32c: Optional. An optional CRC32C checksum of the
+	// AsymmetricDecryptRequest.ciphertext. If specified,
+	// KeyManagementService will verify the integrity of the received
+	// AsymmetricDecryptRequest.ciphertext using this checksum.
+	// KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that CRC32C(AsymmetricDecryptRequest.ciphertext) is
+	// equal to AsymmetricDecryptRequest.ciphertext_crc32c, and if so,
+	// perform a limited number of retries. A persistent mismatch may
+	// indicate an issue in your computation of the CRC32C checksum. Note:
+	// This field is defined as int64 for reasons of compatibility across
+	// different languages. However, it is a non-negative integer, which
+	// will never exceed 2^32-1, and can be safely downconverted to uint32
+	// in languages that support this type.
+	CiphertextCrc32c int64 `json:"ciphertextCrc32c,omitempty,string"`
 
 	// ForceSendFields is a list of field names (e.g. "Ciphertext") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Ciphertext") to include in
@@ -248,16 +294,54 @@ type AsymmetricDecryptResponse struct {
 	// public key.
 	Plaintext string `json:"plaintext,omitempty"`
 
+	// PlaintextCrc32c: Integrity verification field. A CRC32C checksum of
+	// the returned AsymmetricDecryptResponse.plaintext. An integrity check
+	// of AsymmetricDecryptResponse.plaintext can be performed by computing
+	// the CRC32C checksum of AsymmetricDecryptResponse.plaintext and
+	// comparing your results to this field. Discard the response in case of
+	// non-matching checksum values, and perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	PlaintextCrc32c int64 `json:"plaintextCrc32c,omitempty,string"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used in
+	// decryption.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// VerifiedCiphertextCrc32c: Integrity verification field. A flag
+	// indicating whether AsymmetricDecryptRequest.ciphertext_crc32c was
+	// received by KeyManagementService and used for the integrity
+	// verification of the ciphertext. A false value of this field indicates
+	// either that AsymmetricDecryptRequest.ciphertext_crc32c was left unset
+	// or that it was not delivered to KeyManagementService. If you've set
+	// AsymmetricDecryptRequest.ciphertext_crc32c but this field is still
+	// false, discard the response and perform a limited number of retries.
+	VerifiedCiphertextCrc32c bool `json:"verifiedCiphertextCrc32c,omitempty"`
+
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
 	// ForceSendFields is a list of field names (e.g. "Plaintext") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Plaintext") to include in
@@ -278,22 +362,55 @@ func (s *AsymmetricDecryptResponse) MarshalJSON() ([]byte, error) {
 // AsymmetricSignRequest: Request message for
 // KeyManagementService.AsymmetricSign.
 type AsymmetricSignRequest struct {
-	// Digest: Required. The digest of the data to sign. The digest must be
-	// produced with
-	// the same digest algorithm as specified by the key
-	// version's
-	// algorithm.
+	// Data: Optional. The data to sign. It can't be supplied if
+	// AsymmetricSignRequest.digest is supplied.
+	Data string `json:"data,omitempty"`
+
+	// DataCrc32c: Optional. An optional CRC32C checksum of the
+	// AsymmetricSignRequest.data. If specified, KeyManagementService will
+	// verify the integrity of the received AsymmetricSignRequest.data using
+	// this checksum. KeyManagementService will report an error if the
+	// checksum verification fails. If you receive a checksum error, your
+	// client should verify that CRC32C(AsymmetricSignRequest.data) is equal
+	// to AsymmetricSignRequest.data_crc32c, and if so, perform a limited
+	// number of retries. A persistent mismatch may indicate an issue in
+	// your computation of the CRC32C checksum. Note: This field is defined
+	// as int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	DataCrc32c int64 `json:"dataCrc32c,omitempty,string"`
+
+	// Digest: Optional. The digest of the data to sign. The digest must be
+	// produced with the same digest algorithm as specified by the key
+	// version's algorithm. This field may not be supplied if
+	// AsymmetricSignRequest.data is supplied.
 	Digest *Digest `json:"digest,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "Digest") to
+	// DigestCrc32c: Optional. An optional CRC32C checksum of the
+	// AsymmetricSignRequest.digest. If specified, KeyManagementService will
+	// verify the integrity of the received AsymmetricSignRequest.digest
+	// using this checksum. KeyManagementService will report an error if the
+	// checksum verification fails. If you receive a checksum error, your
+	// client should verify that CRC32C(AsymmetricSignRequest.digest) is
+	// equal to AsymmetricSignRequest.digest_crc32c, and if so, perform a
+	// limited number of retries. A persistent mismatch may indicate an
+	// issue in your computation of the CRC32C checksum. Note: This field is
+	// defined as int64 for reasons of compatibility across different
+	// languages. However, it is a non-negative integer, which will never
+	// exceed 2^32-1, and can be safely downconverted to uint32 in languages
+	// that support this type.
+	DigestCrc32c int64 `json:"digestCrc32c,omitempty,string"`
+
+	// ForceSendFields is a list of field names (e.g. "Data") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Digest") to include in API
+	// NullFields is a list of field names (e.g. "Data") to include in API
 	// requests with the JSON null value. By default, fields with empty
 	// values are omitted from API requests. However, any field with an
 	// empty value appearing in NullFields will be sent to the server as
@@ -311,23 +428,76 @@ func (s *AsymmetricSignRequest) MarshalJSON() ([]byte, error) {
 // AsymmetricSignResponse: Response message for
 // KeyManagementService.AsymmetricSign.
 type AsymmetricSignResponse struct {
+	// Name: The resource name of the CryptoKeyVersion used for signing.
+	// Check this field to verify that the intended resource was used for
+	// signing.
+	Name string `json:"name,omitempty"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used for
+	// signing.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
 	// Signature: The created signature.
 	Signature string `json:"signature,omitempty"`
+
+	// SignatureCrc32c: Integrity verification field. A CRC32C checksum of
+	// the returned AsymmetricSignResponse.signature. An integrity check of
+	// AsymmetricSignResponse.signature can be performed by computing the
+	// CRC32C checksum of AsymmetricSignResponse.signature and comparing
+	// your results to this field. Discard the response in case of
+	// non-matching checksum values, and perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	SignatureCrc32c int64 `json:"signatureCrc32c,omitempty,string"`
+
+	// VerifiedDataCrc32c: Integrity verification field. A flag indicating
+	// whether AsymmetricSignRequest.data_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// data. A false value of this field indicates either that
+	// AsymmetricSignRequest.data_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// AsymmetricSignRequest.data_crc32c but this field is still false,
+	// discard the response and perform a limited number of retries.
+	VerifiedDataCrc32c bool `json:"verifiedDataCrc32c,omitempty"`
+
+	// VerifiedDigestCrc32c: Integrity verification field. A flag indicating
+	// whether AsymmetricSignRequest.digest_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// digest. A false value of this field indicates either that
+	// AsymmetricSignRequest.digest_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// AsymmetricSignRequest.digest_crc32c but this field is still false,
+	// discard the response and perform a limited number of retries.
+	VerifiedDigestCrc32c bool `json:"verifiedDigestCrc32c,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
-	// ForceSendFields is a list of field names (e.g. "Signature") to
+	// ForceSendFields is a list of field names (e.g. "Name") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Signature") to include in
-	// API requests with the JSON null value. By default, fields with empty
+	// NullFields is a list of field names (e.g. "Name") to include in API
+	// requests with the JSON null value. By default, fields with empty
 	// values are omitted from API requests. However, any field with an
 	// empty value appearing in NullFields will be sent to the server as
 	// null. It is an error if a field in this list has a non-empty value.
@@ -341,81 +511,40 @@ func (s *AsymmetricSignResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// AuditConfig: Specifies the audit configuration for a service.
-// The configuration determines which permission types are logged, and
-// what
-// identities, if any, are exempted from logging.
-// An AuditConfig must have one or more AuditLogConfigs.
-//
-// If there are AuditConfigs for both `allServices` and a specific
-// service,
-// the union of the two AuditConfigs is used for that service: the
-// log_types
-// specified in each AuditConfig are enabled, and the exempted_members
-// in each
-// AuditLogConfig are exempted.
-//
-// Example Policy with multiple AuditConfigs:
-//
-//     {
-//       "audit_configs": [
-//         {
-//           "service": "allServices"
-//           "audit_log_configs": [
-//             {
-//               "log_type": "DATA_READ",
-//               "exempted_members": [
-//                 "user:jose@example.com"
-//               ]
-//             },
-//             {
-//               "log_type": "DATA_WRITE",
-//             },
-//             {
-//               "log_type": "ADMIN_READ",
-//             }
-//           ]
-//         },
-//         {
-//           "service": "sampleservice.googleapis.com"
-//           "audit_log_configs": [
-//             {
-//               "log_type": "DATA_READ",
-//             },
-//             {
-//               "log_type": "DATA_WRITE",
-//               "exempted_members": [
-//                 "user:aliya@example.com"
-//               ]
-//             }
-//           ]
-//         }
-//       ]
-//     }
-//
-// For sampleservice, this policy enables DATA_READ, DATA_WRITE and
-// ADMIN_READ
-// logging. It also exempts jose@example.com from DATA_READ logging,
-// and
-// aliya@example.com from DATA_WRITE logging.
+// AuditConfig: Specifies the audit configuration for a service. The
+// configuration determines which permission types are logged, and what
+// identities, if any, are exempted from logging. An AuditConfig must
+// have one or more AuditLogConfigs. If there are AuditConfigs for both
+// `allServices` and a specific service, the union of the two
+// AuditConfigs is used for that service: the log_types specified in
+// each AuditConfig are enabled, and the exempted_members in each
+// AuditLogConfig are exempted. Example Policy with multiple
+// AuditConfigs: { "audit_configs": [ { "service": "allServices",
+// "audit_log_configs": [ { "log_type": "DATA_READ", "exempted_members":
+// [ "user:jose@example.com" ] }, { "log_type": "DATA_WRITE" }, {
+// "log_type": "ADMIN_READ" } ] }, { "service":
+// "sampleservice.googleapis.com", "audit_log_configs": [ { "log_type":
+// "DATA_READ" }, { "log_type": "DATA_WRITE", "exempted_members": [
+// "user:aliya@example.com" ] } ] } ] } For sampleservice, this policy
+// enables DATA_READ, DATA_WRITE and ADMIN_READ logging. It also exempts
+// `jose@example.com` from DATA_READ logging, and `aliya@example.com`
+// from DATA_WRITE logging.
 type AuditConfig struct {
 	// AuditLogConfigs: The configuration for logging of each type of
 	// permission.
 	AuditLogConfigs []*AuditLogConfig `json:"auditLogConfigs,omitempty"`
 
-	// Service: Specifies a service that will be enabled for audit
-	// logging.
-	// For example, `storage.googleapis.com`,
-	// `cloudsql.googleapis.com`.
+	// Service: Specifies a service that will be enabled for audit logging.
+	// For example, `storage.googleapis.com`, `cloudsql.googleapis.com`.
 	// `allServices` is a special value that covers all services.
 	Service string `json:"service,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AuditLogConfigs") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "AuditLogConfigs") to
@@ -435,31 +564,15 @@ func (s *AuditConfig) MarshalJSON() ([]byte, error) {
 }
 
 // AuditLogConfig: Provides the configuration for logging a type of
-// permissions.
-// Example:
-//
-//     {
-//       "audit_log_configs": [
-//         {
-//           "log_type": "DATA_READ",
-//           "exempted_members": [
-//             "user:jose@example.com"
-//           ]
-//         },
-//         {
-//           "log_type": "DATA_WRITE",
-//         }
-//       ]
-//     }
-//
-// This enables 'DATA_READ' and 'DATA_WRITE' logging, while
-// exempting
-// jose@example.com from DATA_READ logging.
+// permissions. Example: { "audit_log_configs": [ { "log_type":
+// "DATA_READ", "exempted_members": [ "user:jose@example.com" ] }, {
+// "log_type": "DATA_WRITE" } ] } This enables 'DATA_READ' and
+// 'DATA_WRITE' logging, while exempting jose@example.com from DATA_READ
+// logging.
 type AuditLogConfig struct {
 	// ExemptedMembers: Specifies the identities that do not cause logging
-	// for this type of
-	// permission.
-	// Follows the same format of Binding.members.
+	// for this type of permission. Follows the same format of
+	// Binding.members.
 	ExemptedMembers []string `json:"exemptedMembers,omitempty"`
 
 	// LogType: The log type that this config enables.
@@ -473,10 +586,10 @@ type AuditLogConfig struct {
 
 	// ForceSendFields is a list of field names (e.g. "ExemptedMembers") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "ExemptedMembers") to
@@ -495,61 +608,67 @@ func (s *AuditLogConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Binding: Associates `members` with a `role`.
+// Binding: Associates `members`, or principals, with a `role`.
 type Binding struct {
-	// Condition: The condition that is associated with this binding.
-	// NOTE: An unsatisfied condition will not allow user access via
-	// current
-	// binding. Different bindings, including their conditions, are
-	// examined
-	// independently.
+	// Condition: The condition that is associated with this binding. If the
+	// condition evaluates to `true`, then this binding applies to the
+	// current request. If the condition evaluates to `false`, then this
+	// binding does not apply to the current request. However, a different
+	// role binding might grant the same role to one or more of the
+	// principals in this binding. To learn which resources support
+	// conditions in their IAM policies, see the IAM documentation
+	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	Condition *Expr `json:"condition,omitempty"`
 
-	// Members: Specifies the identities requesting access for a Cloud
-	// Platform resource.
-	// `members` can have the following values:
-	//
-	// * `allUsers`: A special identifier that represents anyone who is
-	//    on the internet; with or without a Google account.
-	//
-	// * `allAuthenticatedUsers`: A special identifier that represents
-	// anyone
-	//    who is authenticated with a Google account or a service
-	// account.
-	//
-	// * `user:{emailid}`: An email address that represents a specific
-	// Google
-	//    account. For example, `alice@example.com` .
-	//
-	//
-	// * `serviceAccount:{emailid}`: An email address that represents a
-	// service
-	//    account. For example,
-	// `my-other-app@appspot.gserviceaccount.com`.
-	//
-	// * `group:{emailid}`: An email address that represents a Google
-	// group.
-	//    For example, `admins@example.com`.
-	//
-	//
-	// * `domain:{domain}`: The G Suite domain (primary) that represents all
-	// the
-	//    users of that domain. For example, `google.com` or
-	// `example.com`.
-	//
-	//
+	// Members: Specifies the principals requesting access for a Google
+	// Cloud resource. `members` can have the following values: *
+	// `allUsers`: A special identifier that represents anyone who is on the
+	// internet; with or without a Google account. *
+	// `allAuthenticatedUsers`: A special identifier that represents anyone
+	// who is authenticated with a Google account or a service account. Does
+	// not include identities that come from external identity providers
+	// (IdPs) through identity federation. * `user:{emailid}`: An email
+	// address that represents a specific Google account. For example,
+	// `alice@example.com` . * `serviceAccount:{emailid}`: An email address
+	// that represents a Google service account. For example,
+	// `my-other-app@appspot.gserviceaccount.com`. *
+	// `serviceAccount:{projectid}.svc.id.goog[{namespace}/{kubernetes-sa}]`:
+	//  An identifier for a Kubernetes service account
+	// (https://cloud.google.com/kubernetes-engine/docs/how-to/kubernetes-service-accounts).
+	// For example, `my-project.svc.id.goog[my-namespace/my-kubernetes-sa]`.
+	// * `group:{emailid}`: An email address that represents a Google group.
+	// For example, `admins@example.com`. * `domain:{domain}`: The G Suite
+	// domain (primary) that represents all the users of that domain. For
+	// example, `google.com` or `example.com`. *
+	// `deleted:user:{emailid}?uid={uniqueid}`: An email address (plus
+	// unique identifier) representing a user that has been recently
+	// deleted. For example, `alice@example.com?uid=123456789012345678901`.
+	// If the user is recovered, this value reverts to `user:{emailid}` and
+	// the recovered user retains the role in the binding. *
+	// `deleted:serviceAccount:{emailid}?uid={uniqueid}`: An email address
+	// (plus unique identifier) representing a service account that has been
+	// recently deleted. For example,
+	// `my-other-app@appspot.gserviceaccount.com?uid=123456789012345678901`.
+	// If the service account is undeleted, this value reverts to
+	// `serviceAccount:{emailid}` and the undeleted service account retains
+	// the role in the binding. * `deleted:group:{emailid}?uid={uniqueid}`:
+	// An email address (plus unique identifier) representing a Google group
+	// that has been recently deleted. For example,
+	// `admins@example.com?uid=123456789012345678901`. If the group is
+	// recovered, this value reverts to `group:{emailid}` and the recovered
+	// group retains the role in the binding.
 	Members []string `json:"members,omitempty"`
 
-	// Role: Role that is assigned to `members`.
+	// Role: Role that is assigned to the list of `members`, or principals.
 	// For example, `roles/viewer`, `roles/editor`, or `roles/owner`.
 	Role string `json:"role,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Condition") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Condition") to include in
@@ -567,94 +686,183 @@ func (s *Binding) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// Certificate: A Certificate represents an X.509 certificate used to
+// authenticate HTTPS connections to EKM replicas.
+type Certificate struct {
+	// Issuer: Output only. The issuer distinguished name in RFC 2253
+	// format. Only present if parsed is true.
+	Issuer string `json:"issuer,omitempty"`
+
+	// NotAfterTime: Output only. The certificate is not valid after this
+	// time. Only present if parsed is true.
+	NotAfterTime string `json:"notAfterTime,omitempty"`
+
+	// NotBeforeTime: Output only. The certificate is not valid before this
+	// time. Only present if parsed is true.
+	NotBeforeTime string `json:"notBeforeTime,omitempty"`
+
+	// Parsed: Output only. True if the certificate was parsed successfully.
+	Parsed bool `json:"parsed,omitempty"`
+
+	// RawDer: Required. The raw certificate bytes in DER format.
+	RawDer string `json:"rawDer,omitempty"`
+
+	// SerialNumber: Output only. The certificate serial number as a hex
+	// string. Only present if parsed is true.
+	SerialNumber string `json:"serialNumber,omitempty"`
+
+	// Sha256Fingerprint: Output only. The SHA-256 certificate fingerprint
+	// as a hex string. Only present if parsed is true.
+	Sha256Fingerprint string `json:"sha256Fingerprint,omitempty"`
+
+	// Subject: Output only. The subject distinguished name in RFC 2253
+	// format. Only present if parsed is true.
+	Subject string `json:"subject,omitempty"`
+
+	// SubjectAlternativeDnsNames: Output only. The subject Alternative DNS
+	// names. Only present if parsed is true.
+	SubjectAlternativeDnsNames []string `json:"subjectAlternativeDnsNames,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Issuer") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Issuer") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *Certificate) MarshalJSON() ([]byte, error) {
+	type NoMethod Certificate
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// CertificateChains: Certificate chains needed to verify the
+// attestation. Certificates in chains are PEM-encoded and are ordered
+// based on https://tools.ietf.org/html/rfc5246#section-7.4.2.
+type CertificateChains struct {
+	// CaviumCerts: Cavium certificate chain corresponding to the
+	// attestation.
+	CaviumCerts []string `json:"caviumCerts,omitempty"`
+
+	// GoogleCardCerts: Google card certificate chain corresponding to the
+	// attestation.
+	GoogleCardCerts []string `json:"googleCardCerts,omitempty"`
+
+	// GooglePartitionCerts: Google partition certificate chain
+	// corresponding to the attestation.
+	GooglePartitionCerts []string `json:"googlePartitionCerts,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CaviumCerts") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CaviumCerts") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *CertificateChains) MarshalJSON() ([]byte, error) {
+	type NoMethod CertificateChains
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // CryptoKey: A CryptoKey represents a logical key that can be used for
-// cryptographic
-// operations.
-//
-// A CryptoKey is made up of one or more versions, which
-// represent the actual key material used in cryptographic operations.
+// cryptographic operations. A CryptoKey is made up of zero or more
+// versions, which represent the actual key material used in
+// cryptographic operations.
 type CryptoKey struct {
 	// CreateTime: Output only. The time at which this CryptoKey was
 	// created.
 	CreateTime string `json:"createTime,omitempty"`
 
-	// Labels: Labels with user-defined metadata. For more information,
-	// see
-	// [Labeling Keys](/kms/docs/labeling-keys).
+	// CryptoKeyBackend: Immutable. The resource name of the backend
+	// environment where the key material for all CryptoKeyVersions
+	// associated with this CryptoKey reside and where all related
+	// cryptographic operations are performed. Only applicable if
+	// CryptoKeyVersions have a ProtectionLevel of EXTERNAL_VPC, with the
+	// resource name in the format
+	// `projects/*/locations/*/ekmConnections/*`. Note, this list is
+	// non-exhaustive and may apply to additional ProtectionLevels in the
+	// future.
+	CryptoKeyBackend string `json:"cryptoKeyBackend,omitempty"`
+
+	// DestroyScheduledDuration: Immutable. The period of time that versions
+	// of this key spend in the DESTROY_SCHEDULED state before transitioning
+	// to DESTROYED. If not specified at creation time, the default duration
+	// is 24 hours.
+	DestroyScheduledDuration string `json:"destroyScheduledDuration,omitempty"`
+
+	// ImportOnly: Immutable. Whether this key may contain imported versions
+	// only.
+	ImportOnly bool `json:"importOnly,omitempty"`
+
+	// Labels: Labels with user-defined metadata. For more information, see
+	// Labeling Keys (https://cloud.google.com/kms/docs/labeling-keys).
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// Name: Output only. The resource name for this CryptoKey in the
-	// format
+	// Name: Output only. The resource name for this CryptoKey in the format
 	// `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
 	Name string `json:"name,omitempty"`
 
 	// NextRotationTime: At next_rotation_time, the Key Management Service
-	// will automatically:
-	//
-	// 1. Create a new version of this CryptoKey.
-	// 2. Mark the new version as primary.
-	//
-	// Key rotations performed manually via
-	// CreateCryptoKeyVersion and
-	// UpdateCryptoKeyPrimaryVersion
-	// do not affect next_rotation_time.
-	//
-	// Keys with purpose
-	// ENCRYPT_DECRYPT support
+	// will automatically: 1. Create a new version of this CryptoKey. 2.
+	// Mark the new version as primary. Key rotations performed manually via
+	// CreateCryptoKeyVersion and UpdateCryptoKeyPrimaryVersion do not
+	// affect next_rotation_time. Keys with purpose ENCRYPT_DECRYPT support
 	// automatic rotation. For other keys, this field must be omitted.
 	NextRotationTime string `json:"nextRotationTime,omitempty"`
 
 	// Primary: Output only. A copy of the "primary" CryptoKeyVersion that
-	// will be used
-	// by Encrypt when this CryptoKey is given
-	// in EncryptRequest.name.
-	//
-	// The CryptoKey's primary version can be updated
-	// via
-	// UpdateCryptoKeyPrimaryVersion.
-	//
-	// All keys with purpose
-	// ENCRYPT_DECRYPT have a
-	// primary. For other keys, this field will be omitted.
+	// will be used by Encrypt when this CryptoKey is given in
+	// EncryptRequest.name. The CryptoKey's primary version can be updated
+	// via UpdateCryptoKeyPrimaryVersion. Keys with purpose ENCRYPT_DECRYPT
+	// may have a primary. For other keys, this field will be omitted.
 	Primary *CryptoKeyVersion `json:"primary,omitempty"`
 
 	// Purpose: Immutable. The immutable purpose of this CryptoKey.
 	//
 	// Possible values:
 	//   "CRYPTO_KEY_PURPOSE_UNSPECIFIED" - Not specified.
-	//   "ENCRYPT_DECRYPT" - CryptoKeys with this purpose may be used
-	// with
-	// Encrypt and
-	// Decrypt.
-	//   "ASYMMETRIC_SIGN" - CryptoKeys with this purpose may be used
-	// with
-	// AsymmetricSign and
-	// GetPublicKey.
+	//   "ENCRYPT_DECRYPT" - CryptoKeys with this purpose may be used with
+	// Encrypt and Decrypt.
+	//   "ASYMMETRIC_SIGN" - CryptoKeys with this purpose may be used with
+	// AsymmetricSign and GetPublicKey.
 	//   "ASYMMETRIC_DECRYPT" - CryptoKeys with this purpose may be used
-	// with
-	// AsymmetricDecrypt and
-	// GetPublicKey.
+	// with AsymmetricDecrypt and GetPublicKey.
+	//   "MAC" - CryptoKeys with this purpose may be used with MacSign.
 	Purpose string `json:"purpose,omitempty"`
 
 	// RotationPeriod: next_rotation_time will be advanced by this period
-	// when the service
-	// automatically rotates a key. Must be at least 24 hours and at
-	// most
-	// 876,000 hours.
-	//
-	// If rotation_period is set, next_rotation_time must also be set.
-	//
-	// Keys with purpose
-	// ENCRYPT_DECRYPT support
-	// automatic rotation. For other keys, this field must be omitted.
+	// when the service automatically rotates a key. Must be at least 24
+	// hours and at most 876,000 hours. If rotation_period is set,
+	// next_rotation_time must also be set. Keys with purpose
+	// ENCRYPT_DECRYPT support automatic rotation. For other keys, this
+	// field must be omitted.
 	RotationPeriod string `json:"rotationPeriod,omitempty"`
 
 	// VersionTemplate: A template describing settings for new
-	// CryptoKeyVersion instances.
-	// The properties of new CryptoKeyVersion instances created by
-	// either
-	// CreateCryptoKeyVersion or
-	// auto-rotation are controlled by this template.
+	// CryptoKeyVersion instances. The properties of new CryptoKeyVersion
+	// instances created by either CreateCryptoKeyVersion or auto-rotation
+	// are controlled by this template.
 	VersionTemplate *CryptoKeyVersionTemplate `json:"versionTemplate,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -663,10 +871,10 @@ type CryptoKey struct {
 
 	// ForceSendFields is a list of field names (e.g. "CreateTime") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "CreateTime") to include in
@@ -685,22 +893,14 @@ func (s *CryptoKey) MarshalJSON() ([]byte, error) {
 }
 
 // CryptoKeyVersion: A CryptoKeyVersion represents an individual
-// cryptographic key, and the
-// associated key material.
-//
-// An ENABLED version can be
-// used for cryptographic operations.
-//
-// For security reasons, the raw cryptographic key material represented
-// by a
+// cryptographic key, and the associated key material. An ENABLED
+// version can be used for cryptographic operations. For security
+// reasons, the raw cryptographic key material represented by a
 // CryptoKeyVersion can never be viewed or exported. It can only be used
-// to
-// encrypt, decrypt, or sign data when an authorized user or application
-// invokes
-// Cloud KMS.
+// to encrypt, decrypt, or sign data when an authorized user or
+// application invokes Cloud KMS.
 type CryptoKeyVersion struct {
-	// Algorithm: Output only. The CryptoKeyVersionAlgorithm that
-	// this
+	// Algorithm: Output only. The CryptoKeyVersionAlgorithm that this
 	// CryptoKeyVersion supports.
 	//
 	// Possible values:
@@ -722,6 +922,12 @@ type CryptoKeyVersion struct {
 	// key and a SHA256 digest.
 	//   "RSA_SIGN_PKCS1_4096_SHA512" - RSASSA-PKCS1-v1_5 with a 4096 bit
 	// key and a SHA512 digest.
+	//   "RSA_SIGN_RAW_PKCS1_2048" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 2048 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_3072" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 3072 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_4096" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 4096 bit key.
 	//   "RSA_DECRYPT_OAEP_2048_SHA256" - RSAES-OAEP 2048 bit key with a
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_3072_SHA256" - RSAES-OAEP 3072 bit key with a
@@ -730,19 +936,31 @@ type CryptoKeyVersion struct {
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_4096_SHA512" - RSAES-OAEP 4096 bit key with a
 	// SHA512 digest.
+	//   "RSA_DECRYPT_OAEP_2048_SHA1" - RSAES-OAEP 2048 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_3072_SHA1" - RSAES-OAEP 3072 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_4096_SHA1" - RSAES-OAEP 4096 bit key with a SHA1
+	// digest.
 	//   "EC_SIGN_P256_SHA256" - ECDSA on the NIST P-256 curve with a SHA256
 	// digest.
 	//   "EC_SIGN_P384_SHA384" - ECDSA on the NIST P-384 curve with a SHA384
 	// digest.
+	//   "EC_SIGN_SECP256K1_SHA256" - ECDSA on the non-NIST secp256k1 curve.
+	// This curve is only supported for HSM protection level.
+	//   "HMAC_SHA256" - HMAC-SHA256 signing with a 256 bit key.
+	//   "HMAC_SHA1" - HMAC-SHA1 signing with a 160 bit key.
+	//   "HMAC_SHA384" - HMAC-SHA384 signing with a 384 bit key.
+	//   "HMAC_SHA512" - HMAC-SHA512 signing with a 512 bit key.
+	//   "HMAC_SHA224" - HMAC-SHA224 signing with a 224 bit key.
+	//   "EXTERNAL_SYMMETRIC_ENCRYPTION" - Algorithm representing symmetric
+	// encryption by an external key manager.
 	Algorithm string `json:"algorithm,omitempty"`
 
 	// Attestation: Output only. Statement that was generated and signed by
-	// the HSM at key
-	// creation time. Use this statement to verify attributes of the key as
-	// stored
-	// on the HSM, independently of Google. Only provided for key versions
-	// with
-	// protection_level HSM.
+	// the HSM at key creation time. Use this statement to verify attributes
+	// of the key as stored on the HSM, independently of Google. Only
+	// provided for key versions with protection_level HSM.
 	Attestation *KeyOperationAttestation `json:"attestation,omitempty"`
 
 	// CreateTime: Output only. The time at which this CryptoKeyVersion was
@@ -750,90 +968,111 @@ type CryptoKeyVersion struct {
 	CreateTime string `json:"createTime,omitempty"`
 
 	// DestroyEventTime: Output only. The time this CryptoKeyVersion's key
-	// material was
-	// destroyed. Only present if state is
-	// DESTROYED.
+	// material was destroyed. Only present if state is DESTROYED.
 	DestroyEventTime string `json:"destroyEventTime,omitempty"`
 
 	// DestroyTime: Output only. The time this CryptoKeyVersion's key
-	// material is scheduled
-	// for destruction. Only present if state is
+	// material is scheduled for destruction. Only present if state is
 	// DESTROY_SCHEDULED.
 	DestroyTime string `json:"destroyTime,omitempty"`
 
+	// ExternalDestructionFailureReason: Output only. The root cause of the
+	// most recent external destruction failure. Only present if state is
+	// EXTERNAL_DESTRUCTION_FAILED.
+	ExternalDestructionFailureReason string `json:"externalDestructionFailureReason,omitempty"`
+
+	// ExternalProtectionLevelOptions: ExternalProtectionLevelOptions stores
+	// a group of additional fields for configuring a CryptoKeyVersion that
+	// are specific to the EXTERNAL protection level and EXTERNAL_VPC
+	// protection levels.
+	ExternalProtectionLevelOptions *ExternalProtectionLevelOptions `json:"externalProtectionLevelOptions,omitempty"`
+
 	// GenerateTime: Output only. The time this CryptoKeyVersion's key
-	// material was
-	// generated.
+	// material was generated.
 	GenerateTime string `json:"generateTime,omitempty"`
 
-	// ImportFailureReason: Output only. The root cause of an import
-	// failure. Only present if
-	// state is
-	// IMPORT_FAILED.
+	// GenerationFailureReason: Output only. The root cause of the most
+	// recent generation failure. Only present if state is
+	// GENERATION_FAILED.
+	GenerationFailureReason string `json:"generationFailureReason,omitempty"`
+
+	// ImportFailureReason: Output only. The root cause of the most recent
+	// import failure. Only present if state is IMPORT_FAILED.
 	ImportFailureReason string `json:"importFailureReason,omitempty"`
 
-	// ImportJob: Output only. The name of the ImportJob used to import
-	// this
-	// CryptoKeyVersion. Only present if the underlying key material
-	// was
-	// imported.
+	// ImportJob: Output only. The name of the ImportJob used in the most
+	// recent import of this CryptoKeyVersion. Only present if the
+	// underlying key material was imported.
 	ImportJob string `json:"importJob,omitempty"`
 
 	// ImportTime: Output only. The time at which this CryptoKeyVersion's
-	// key material
-	// was imported.
+	// key material was most recently imported.
 	ImportTime string `json:"importTime,omitempty"`
 
 	// Name: Output only. The resource name for this CryptoKeyVersion in the
 	// format
-	// `projects/*/locations/*/keyRings/*/cryptoKeys/*/cryptoKeyVersio
-	// ns/*`.
+	// `projects/*/locations/*/keyRings/*/cryptoKeys/*/cryptoKeyVersions/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProtectionLevel: Output only. The ProtectionLevel describing how
-	// crypto operations are
-	// performed with this CryptoKeyVersion.
+	// crypto operations are performed with this CryptoKeyVersion.
 	//
 	// Possible values:
 	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
 	//   "SOFTWARE" - Crypto operations are performed in software.
 	//   "HSM" - Crypto operations are performed in a Hardware Security
 	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
 	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// ReimportEligible: Output only. Whether or not this key version is
+	// eligible for reimport, by being specified as a target in
+	// ImportCryptoKeyVersionRequest.crypto_key_version.
+	ReimportEligible bool `json:"reimportEligible,omitempty"`
 
 	// State: The current state of the CryptoKeyVersion.
 	//
 	// Possible values:
 	//   "CRYPTO_KEY_VERSION_STATE_UNSPECIFIED" - Not specified.
 	//   "PENDING_GENERATION" - This version is still being generated. It
-	// may not be used, enabled,
-	// disabled, or destroyed yet. Cloud KMS will automatically mark
-	// this
-	// version ENABLED as soon as the version is ready.
+	// may not be used, enabled, disabled, or destroyed yet. Cloud KMS will
+	// automatically mark this version ENABLED as soon as the version is
+	// ready.
 	//   "ENABLED" - This version may be used for cryptographic operations.
 	//   "DISABLED" - This version may not be used, but the key material is
-	// still available,
-	// and the version can be placed back into the ENABLED state.
+	// still available, and the version can be placed back into the ENABLED
+	// state.
 	//   "DESTROYED" - This version is destroyed, and the key material is no
-	// longer stored.
-	// A version may not leave this state once entered.
+	// longer stored. This version may only become ENABLED again if this
+	// version is reimport_eligible and the original key material is
+	// reimported with a call to
+	// KeyManagementService.ImportCryptoKeyVersion.
 	//   "DESTROY_SCHEDULED" - This version is scheduled for destruction,
-	// and will be destroyed soon.
-	// Call
-	// RestoreCryptoKeyVersion
-	// to put it back into the DISABLED state.
+	// and will be destroyed soon. Call RestoreCryptoKeyVersion to put it
+	// back into the DISABLED state.
 	//   "PENDING_IMPORT" - This version is still being imported. It may not
-	// be used, enabled,
-	// disabled, or destroyed yet. Cloud KMS will automatically mark
-	// this
-	// version ENABLED as soon as the version is ready.
+	// be used, enabled, disabled, or destroyed yet. Cloud KMS will
+	// automatically mark this version ENABLED as soon as the version is
+	// ready.
 	//   "IMPORT_FAILED" - This version was not imported successfully. It
-	// may not be used, enabled,
-	// disabled, or destroyed. The submitted key material has been
-	// discarded.
-	// Additional details can be found
-	// in
+	// may not be used, enabled, disabled, or destroyed. The submitted key
+	// material has been discarded. Additional details can be found in
 	// CryptoKeyVersion.import_failure_reason.
+	//   "GENERATION_FAILED" - This version was not generated successfully.
+	// It may not be used, enabled, disabled, or destroyed. Additional
+	// details can be found in CryptoKeyVersion.generation_failure_reason.
+	//   "PENDING_EXTERNAL_DESTRUCTION" - This version was destroyed, and it
+	// may not be used or enabled again. Cloud KMS is waiting for the
+	// corresponding key material residing in an external key manager to be
+	// destroyed.
+	//   "EXTERNAL_DESTRUCTION_FAILED" - This version was destroyed, and it
+	// may not be used or enabled again. However, Cloud KMS could not
+	// confirm that the corresponding key material residing in an external
+	// key manager was destroyed. Additional details can be found in
+	// CryptoKeyVersion.external_destruction_failure_reason.
 	State string `json:"state,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -842,10 +1081,10 @@ type CryptoKeyVersion struct {
 
 	// ForceSendFields is a list of field names (e.g. "Algorithm") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Algorithm") to include in
@@ -864,18 +1103,14 @@ func (s *CryptoKeyVersion) MarshalJSON() ([]byte, error) {
 }
 
 // CryptoKeyVersionTemplate: A CryptoKeyVersionTemplate specifies the
-// properties to use when creating
-// a new CryptoKeyVersion, either manually with
-// CreateCryptoKeyVersion or
-// automatically as a result of auto-rotation.
+// properties to use when creating a new CryptoKeyVersion, either
+// manually with CreateCryptoKeyVersion or automatically as a result of
+// auto-rotation.
 type CryptoKeyVersionTemplate struct {
-	// Algorithm: Required. Algorithm to use
-	// when creating a CryptoKeyVersion based on this template.
-	//
-	// For backwards compatibility, GOOGLE_SYMMETRIC_ENCRYPTION is implied
-	// if both
-	// this field is omitted and CryptoKey.purpose is
-	// ENCRYPT_DECRYPT.
+	// Algorithm: Required. Algorithm to use when creating a
+	// CryptoKeyVersion based on this template. For backwards compatibility,
+	// GOOGLE_SYMMETRIC_ENCRYPTION is implied if both this field is omitted
+	// and CryptoKey.purpose is ENCRYPT_DECRYPT.
 	//
 	// Possible values:
 	//   "CRYPTO_KEY_VERSION_ALGORITHM_UNSPECIFIED" - Not specified.
@@ -896,6 +1131,12 @@ type CryptoKeyVersionTemplate struct {
 	// key and a SHA256 digest.
 	//   "RSA_SIGN_PKCS1_4096_SHA512" - RSASSA-PKCS1-v1_5 with a 4096 bit
 	// key and a SHA512 digest.
+	//   "RSA_SIGN_RAW_PKCS1_2048" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 2048 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_3072" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 3072 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_4096" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 4096 bit key.
 	//   "RSA_DECRYPT_OAEP_2048_SHA256" - RSAES-OAEP 2048 bit key with a
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_3072_SHA256" - RSAES-OAEP 3072 bit key with a
@@ -904,29 +1145,48 @@ type CryptoKeyVersionTemplate struct {
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_4096_SHA512" - RSAES-OAEP 4096 bit key with a
 	// SHA512 digest.
+	//   "RSA_DECRYPT_OAEP_2048_SHA1" - RSAES-OAEP 2048 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_3072_SHA1" - RSAES-OAEP 3072 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_4096_SHA1" - RSAES-OAEP 4096 bit key with a SHA1
+	// digest.
 	//   "EC_SIGN_P256_SHA256" - ECDSA on the NIST P-256 curve with a SHA256
 	// digest.
 	//   "EC_SIGN_P384_SHA384" - ECDSA on the NIST P-384 curve with a SHA384
 	// digest.
+	//   "EC_SIGN_SECP256K1_SHA256" - ECDSA on the non-NIST secp256k1 curve.
+	// This curve is only supported for HSM protection level.
+	//   "HMAC_SHA256" - HMAC-SHA256 signing with a 256 bit key.
+	//   "HMAC_SHA1" - HMAC-SHA1 signing with a 160 bit key.
+	//   "HMAC_SHA384" - HMAC-SHA384 signing with a 384 bit key.
+	//   "HMAC_SHA512" - HMAC-SHA512 signing with a 512 bit key.
+	//   "HMAC_SHA224" - HMAC-SHA224 signing with a 224 bit key.
+	//   "EXTERNAL_SYMMETRIC_ENCRYPTION" - Algorithm representing symmetric
+	// encryption by an external key manager.
 	Algorithm string `json:"algorithm,omitempty"`
 
 	// ProtectionLevel: ProtectionLevel to use when creating a
-	// CryptoKeyVersion based on
-	// this template. Immutable. Defaults to SOFTWARE.
+	// CryptoKeyVersion based on this template. Immutable. Defaults to
+	// SOFTWARE.
 	//
 	// Possible values:
 	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
 	//   "SOFTWARE" - Crypto operations are performed in software.
 	//   "HSM" - Crypto operations are performed in a Hardware Security
 	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
 	ProtectionLevel string `json:"protectionLevel,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Algorithm") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Algorithm") to include in
@@ -947,23 +1207,53 @@ func (s *CryptoKeyVersionTemplate) MarshalJSON() ([]byte, error) {
 // DecryptRequest: Request message for KeyManagementService.Decrypt.
 type DecryptRequest struct {
 	// AdditionalAuthenticatedData: Optional. Optional data that must match
-	// the data originally supplied
-	// in
+	// the data originally supplied in
 	// EncryptRequest.additional_authenticated_data.
 	AdditionalAuthenticatedData string `json:"additionalAuthenticatedData,omitempty"`
 
-	// Ciphertext: Required. The encrypted data originally returned
-	// in
+	// AdditionalAuthenticatedDataCrc32c: Optional. An optional CRC32C
+	// checksum of the DecryptRequest.additional_authenticated_data. If
+	// specified, KeyManagementService will verify the integrity of the
+	// received DecryptRequest.additional_authenticated_data using this
+	// checksum. KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that
+	// CRC32C(DecryptRequest.additional_authenticated_data) is equal to
+	// DecryptRequest.additional_authenticated_data_crc32c, and if so,
+	// perform a limited number of retries. A persistent mismatch may
+	// indicate an issue in your computation of the CRC32C checksum. Note:
+	// This field is defined as int64 for reasons of compatibility across
+	// different languages. However, it is a non-negative integer, which
+	// will never exceed 2^32-1, and can be safely downconverted to uint32
+	// in languages that support this type.
+	AdditionalAuthenticatedDataCrc32c int64 `json:"additionalAuthenticatedDataCrc32c,omitempty,string"`
+
+	// Ciphertext: Required. The encrypted data originally returned in
 	// EncryptResponse.ciphertext.
 	Ciphertext string `json:"ciphertext,omitempty"`
 
+	// CiphertextCrc32c: Optional. An optional CRC32C checksum of the
+	// DecryptRequest.ciphertext. If specified, KeyManagementService will
+	// verify the integrity of the received DecryptRequest.ciphertext using
+	// this checksum. KeyManagementService will report an error if the
+	// checksum verification fails. If you receive a checksum error, your
+	// client should verify that CRC32C(DecryptRequest.ciphertext) is equal
+	// to DecryptRequest.ciphertext_crc32c, and if so, perform a limited
+	// number of retries. A persistent mismatch may indicate an issue in
+	// your computation of the CRC32C checksum. Note: This field is defined
+	// as int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	CiphertextCrc32c int64 `json:"ciphertextCrc32c,omitempty,string"`
+
 	// ForceSendFields is a list of field names (e.g.
 	// "AdditionalAuthenticatedData") to unconditionally include in API
-	// requests. By default, fields with empty values are omitted from API
-	// requests. However, any non-pointer, non-interface field appearing in
-	// ForceSendFields will be sent to the server regardless of whether the
-	// field is empty or not. This may be used to include empty fields in
-	// Patch requests.
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g.
@@ -988,16 +1278,49 @@ type DecryptResponse struct {
 	// EncryptRequest.plaintext.
 	Plaintext string `json:"plaintext,omitempty"`
 
+	// PlaintextCrc32c: Integrity verification field. A CRC32C checksum of
+	// the returned DecryptResponse.plaintext. An integrity check of
+	// DecryptResponse.plaintext can be performed by computing the CRC32C
+	// checksum of DecryptResponse.plaintext and comparing your results to
+	// this field. Discard the response in case of non-matching checksum
+	// values, and perform a limited number of retries. A persistent
+	// mismatch may indicate an issue in your computation of the CRC32C
+	// checksum. Note: receiving this response message indicates that
+	// KeyManagementService is able to successfully decrypt the ciphertext.
+	// Note: This field is defined as int64 for reasons of compatibility
+	// across different languages. However, it is a non-negative integer,
+	// which will never exceed 2^32-1, and can be safely downconverted to
+	// uint32 in languages that support this type.
+	PlaintextCrc32c int64 `json:"plaintextCrc32c,omitempty,string"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used in
+	// decryption.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// UsedPrimary: Whether the Decryption was performed using the primary
+	// key version.
+	UsedPrimary bool `json:"usedPrimary,omitempty"`
+
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
 	// ForceSendFields is a list of field names (e.g. "Plaintext") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Plaintext") to include in
@@ -1033,10 +1356,10 @@ type Digest struct {
 
 	// ForceSendFields is a list of field names (e.g. "Sha256") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Sha256") to include in API
@@ -1054,40 +1377,186 @@ func (s *Digest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// EncryptRequest: Request message for KeyManagementService.Encrypt.
-type EncryptRequest struct {
-	// AdditionalAuthenticatedData: Optional. Optional data that, if
-	// specified, must also be provided during decryption
-	// through DecryptRequest.additional_authenticated_data.
-	//
-	// The maximum size depends on the key version's
-	// protection_level. For
-	// SOFTWARE keys, the AAD must be no larger than
-	// 64KiB. For HSM keys, the combined length of the
-	// plaintext and additional_authenticated_data fields must be no larger
-	// than
-	// 8KiB.
-	AdditionalAuthenticatedData string `json:"additionalAuthenticatedData,omitempty"`
+// EkmConfig: An EkmConfig is a singleton resource that represents
+// configuration parameters that apply to all CryptoKeys and
+// CryptoKeyVersions with a ProtectionLevel of EXTERNAL_VPC in a given
+// project and location.
+type EkmConfig struct {
+	// DefaultEkmConnection: Optional. Resource name of the default
+	// EkmConnection. Setting this field to the empty string removes the
+	// default.
+	DefaultEkmConnection string `json:"defaultEkmConnection,omitempty"`
 
-	// Plaintext: Required. The data to encrypt. Must be no larger than
-	// 64KiB.
-	//
-	// The maximum size depends on the key version's
-	// protection_level. For
-	// SOFTWARE keys, the plaintext must be no larger
-	// than 64KiB. For HSM keys, the combined length of the
-	// plaintext and additional_authenticated_data fields must be no larger
-	// than
-	// 8KiB.
-	Plaintext string `json:"plaintext,omitempty"`
+	// Name: Output only. The resource name for the EkmConfig in the format
+	// `projects/*/locations/*/ekmConfig`.
+	Name string `json:"name,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
 
 	// ForceSendFields is a list of field names (e.g.
-	// "AdditionalAuthenticatedData") to unconditionally include in API
-	// requests. By default, fields with empty values are omitted from API
+	// "DefaultEkmConnection") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
 	// requests. However, any non-pointer, non-interface field appearing in
 	// ForceSendFields will be sent to the server regardless of whether the
 	// field is empty or not. This may be used to include empty fields in
 	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DefaultEkmConnection") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EkmConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod EkmConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// EkmConnection: An EkmConnection represents an individual EKM
+// connection. It can be used for creating CryptoKeys and
+// CryptoKeyVersions with a ProtectionLevel of EXTERNAL_VPC, as well as
+// performing cryptographic operations using keys created within the
+// EkmConnection.
+type EkmConnection struct {
+	// CreateTime: Output only. The time at which the EkmConnection was
+	// created.
+	CreateTime string `json:"createTime,omitempty"`
+
+	// CryptoSpacePath: Optional. Identifies the EKM Crypto Space that this
+	// EkmConnection maps to. Note: This field is required if
+	// KeyManagementMode is CLOUD_KMS.
+	CryptoSpacePath string `json:"cryptoSpacePath,omitempty"`
+
+	// Etag: Optional. Etag of the currently stored EkmConnection.
+	Etag string `json:"etag,omitempty"`
+
+	// KeyManagementMode: Optional. Describes who can perform control plane
+	// operations on the EKM. If unset, this defaults to MANUAL.
+	//
+	// Possible values:
+	//   "KEY_MANAGEMENT_MODE_UNSPECIFIED" - Not specified.
+	//   "MANUAL" - EKM-side key management operations on CryptoKeys created
+	// with this EkmConnection must be initiated from the EKM directly and
+	// cannot be performed from Cloud KMS. This means that: * When creating
+	// a CryptoKeyVersion associated with this EkmConnection, the caller
+	// must supply the key path of pre-existing external key material that
+	// will be linked to the CryptoKeyVersion. * Destruction of external key
+	// material cannot be requested via the Cloud KMS API and must be
+	// performed directly in the EKM. * Automatic rotation of key material
+	// is not supported.
+	//   "CLOUD_KMS" - All CryptoKeys created with this EkmConnection use
+	// EKM-side key management operations initiated from Cloud KMS. This
+	// means that: * When a CryptoKeyVersion associated with this
+	// EkmConnection is created, the EKM automatically generates new key
+	// material and a new key path. The caller cannot supply the key path of
+	// pre-existing external key material. * Destruction of external key
+	// material associated with this EkmConnection can be requested by
+	// calling DestroyCryptoKeyVersion. * Automatic rotation of key material
+	// is supported.
+	KeyManagementMode string `json:"keyManagementMode,omitempty"`
+
+	// Name: Output only. The resource name for the EkmConnection in the
+	// format `projects/*/locations/*/ekmConnections/*`.
+	Name string `json:"name,omitempty"`
+
+	// ServiceResolvers: A list of ServiceResolvers where the EKM can be
+	// reached. There should be one ServiceResolver per EKM replica.
+	// Currently, only a single ServiceResolver is supported.
+	ServiceResolvers []*ServiceResolver `json:"serviceResolvers,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "CreateTime") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CreateTime") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EkmConnection) MarshalJSON() ([]byte, error) {
+	type NoMethod EkmConnection
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// EncryptRequest: Request message for KeyManagementService.Encrypt.
+type EncryptRequest struct {
+	// AdditionalAuthenticatedData: Optional. Optional data that, if
+	// specified, must also be provided during decryption through
+	// DecryptRequest.additional_authenticated_data. The maximum size
+	// depends on the key version's protection_level. For SOFTWARE,
+	// EXTERNAL, and EXTERNAL_VPC keys the AAD must be no larger than 64KiB.
+	// For HSM keys, the combined length of the plaintext and
+	// additional_authenticated_data fields must be no larger than 8KiB.
+	AdditionalAuthenticatedData string `json:"additionalAuthenticatedData,omitempty"`
+
+	// AdditionalAuthenticatedDataCrc32c: Optional. An optional CRC32C
+	// checksum of the EncryptRequest.additional_authenticated_data. If
+	// specified, KeyManagementService will verify the integrity of the
+	// received EncryptRequest.additional_authenticated_data using this
+	// checksum. KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that
+	// CRC32C(EncryptRequest.additional_authenticated_data) is equal to
+	// EncryptRequest.additional_authenticated_data_crc32c, and if so,
+	// perform a limited number of retries. A persistent mismatch may
+	// indicate an issue in your computation of the CRC32C checksum. Note:
+	// This field is defined as int64 for reasons of compatibility across
+	// different languages. However, it is a non-negative integer, which
+	// will never exceed 2^32-1, and can be safely downconverted to uint32
+	// in languages that support this type.
+	AdditionalAuthenticatedDataCrc32c int64 `json:"additionalAuthenticatedDataCrc32c,omitempty,string"`
+
+	// Plaintext: Required. The data to encrypt. Must be no larger than
+	// 64KiB. The maximum size depends on the key version's
+	// protection_level. For SOFTWARE, EXTERNAL, and EXTERNAL_VPC keys, the
+	// plaintext must be no larger than 64KiB. For HSM keys, the combined
+	// length of the plaintext and additional_authenticated_data fields must
+	// be no larger than 8KiB.
+	Plaintext string `json:"plaintext,omitempty"`
+
+	// PlaintextCrc32c: Optional. An optional CRC32C checksum of the
+	// EncryptRequest.plaintext. If specified, KeyManagementService will
+	// verify the integrity of the received EncryptRequest.plaintext using
+	// this checksum. KeyManagementService will report an error if the
+	// checksum verification fails. If you receive a checksum error, your
+	// client should verify that CRC32C(EncryptRequest.plaintext) is equal
+	// to EncryptRequest.plaintext_crc32c, and if so, perform a limited
+	// number of retries. A persistent mismatch may indicate an issue in
+	// your computation of the CRC32C checksum. Note: This field is defined
+	// as int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	PlaintextCrc32c int64 `json:"plaintextCrc32c,omitempty,string"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "AdditionalAuthenticatedData") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g.
@@ -1111,11 +1580,59 @@ type EncryptResponse struct {
 	// Ciphertext: The encrypted data.
 	Ciphertext string `json:"ciphertext,omitempty"`
 
+	// CiphertextCrc32c: Integrity verification field. A CRC32C checksum of
+	// the returned EncryptResponse.ciphertext. An integrity check of
+	// EncryptResponse.ciphertext can be performed by computing the CRC32C
+	// checksum of EncryptResponse.ciphertext and comparing your results to
+	// this field. Discard the response in case of non-matching checksum
+	// values, and perform a limited number of retries. A persistent
+	// mismatch may indicate an issue in your computation of the CRC32C
+	// checksum. Note: This field is defined as int64 for reasons of
+	// compatibility across different languages. However, it is a
+	// non-negative integer, which will never exceed 2^32-1, and can be
+	// safely downconverted to uint32 in languages that support this type.
+	CiphertextCrc32c int64 `json:"ciphertextCrc32c,omitempty,string"`
+
 	// Name: The resource name of the CryptoKeyVersion used in encryption.
-	// Check
-	// this field to verify that the intended resource was used for
+	// Check this field to verify that the intended resource was used for
 	// encryption.
 	Name string `json:"name,omitempty"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used in
+	// encryption.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// VerifiedAdditionalAuthenticatedDataCrc32c: Integrity verification
+	// field. A flag indicating whether
+	// EncryptRequest.additional_authenticated_data_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// AAD. A false value of this field indicates either that
+	// EncryptRequest.additional_authenticated_data_crc32c was left unset or
+	// that it was not delivered to KeyManagementService. If you've set
+	// EncryptRequest.additional_authenticated_data_crc32c but this field is
+	// still false, discard the response and perform a limited number of
+	// retries.
+	VerifiedAdditionalAuthenticatedDataCrc32c bool `json:"verifiedAdditionalAuthenticatedDataCrc32c,omitempty"`
+
+	// VerifiedPlaintextCrc32c: Integrity verification field. A flag
+	// indicating whether EncryptRequest.plaintext_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// plaintext. A false value of this field indicates either that
+	// EncryptRequest.plaintext_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// EncryptRequest.plaintext_crc32c but this field is still false,
+	// discard the response and perform a limited number of retries.
+	VerifiedPlaintextCrc32c bool `json:"verifiedPlaintextCrc32c,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
@@ -1123,10 +1640,10 @@ type EncryptResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "Ciphertext") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Ciphertext") to include in
@@ -1144,43 +1661,49 @@ func (s *EncryptResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Expr: Represents an expression text. Example:
-//
-//     title: "User account presence"
-//     description: "Determines whether the request has a user account"
-//     expression: "size(request.user) > 0"
+// Expr: Represents a textual expression in the Common Expression
+// Language (CEL) syntax. CEL is a C-like expression language. The
+// syntax and semantics of CEL are documented at
+// https://github.com/google/cel-spec. Example (Comparison): title:
+// "Summary size limit" description: "Determines if a summary is less
+// than 100 chars" expression: "document.summary.size() < 100" Example
+// (Equality): title: "Requestor is owner" description: "Determines if
+// requestor is the document owner" expression: "document.owner ==
+// request.auth.claims.email" Example (Logic): title: "Public documents"
+// description: "Determine whether the document should be publicly
+// visible" expression: "document.type != 'private' && document.type !=
+// 'internal'" Example (Data Manipulation): title: "Notification string"
+// description: "Create a notification string with a timestamp."
+// expression: "'New message received at ' +
+// string(document.create_time)" The exact variables and functions that
+// may be referenced within an expression are determined by the service
+// that evaluates it. See the service documentation for additional
+// information.
 type Expr struct {
-	// Description: An optional description of the expression. This is a
-	// longer text which
-	// describes the expression, e.g. when hovered over it in a UI.
+	// Description: Optional. Description of the expression. This is a
+	// longer text which describes the expression, e.g. when hovered over it
+	// in a UI.
 	Description string `json:"description,omitempty"`
 
-	// Expression: Textual representation of an expression in
-	// Common Expression Language syntax.
-	//
-	// The application context of the containing message determines
-	// which
-	// well-known feature set of CEL is supported.
+	// Expression: Textual representation of an expression in Common
+	// Expression Language syntax.
 	Expression string `json:"expression,omitempty"`
 
-	// Location: An optional string indicating the location of the
-	// expression for error
-	// reporting, e.g. a file name and a position in the file.
+	// Location: Optional. String indicating the location of the expression
+	// for error reporting, e.g. a file name and a position in the file.
 	Location string `json:"location,omitempty"`
 
-	// Title: An optional title for the expression, i.e. a short string
-	// describing
-	// its purpose. This can be used e.g. in UIs which allow to enter
-	// the
-	// expression.
+	// Title: Optional. Title for the expression, i.e. a short string
+	// describing its purpose. This can be used e.g. in UIs which allow to
+	// enter the expression.
 	Title string `json:"title,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Description") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Description") to include
@@ -1198,13 +1721,141 @@ func (s *Expr) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// ExternalProtectionLevelOptions: ExternalProtectionLevelOptions stores
+// a group of additional fields for configuring a CryptoKeyVersion that
+// are specific to the EXTERNAL protection level and EXTERNAL_VPC
+// protection levels.
+type ExternalProtectionLevelOptions struct {
+	// EkmConnectionKeyPath: The path to the external key material on the
+	// EKM when using EkmConnection e.g., "v0/my/key". Set this field
+	// instead of external_key_uri when using an EkmConnection.
+	EkmConnectionKeyPath string `json:"ekmConnectionKeyPath,omitempty"`
+
+	// ExternalKeyUri: The URI for an external resource that this
+	// CryptoKeyVersion represents.
+	ExternalKeyUri string `json:"externalKeyUri,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "EkmConnectionKeyPath") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EkmConnectionKeyPath") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ExternalProtectionLevelOptions) MarshalJSON() ([]byte, error) {
+	type NoMethod ExternalProtectionLevelOptions
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GenerateRandomBytesRequest: Request message for
+// KeyManagementService.GenerateRandomBytes.
+type GenerateRandomBytesRequest struct {
+	// LengthBytes: The length in bytes of the amount of randomness to
+	// retrieve. Minimum 8 bytes, maximum 1024 bytes.
+	LengthBytes int64 `json:"lengthBytes,omitempty"`
+
+	// ProtectionLevel: The ProtectionLevel to use when generating the
+	// random data. Currently, only HSM protection level is supported.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "LengthBytes") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "LengthBytes") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GenerateRandomBytesRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod GenerateRandomBytesRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GenerateRandomBytesResponse: Response message for
+// KeyManagementService.GenerateRandomBytes.
+type GenerateRandomBytesResponse struct {
+	// Data: The generated data.
+	Data string `json:"data,omitempty"`
+
+	// DataCrc32c: Integrity verification field. A CRC32C checksum of the
+	// returned GenerateRandomBytesResponse.data. An integrity check of
+	// GenerateRandomBytesResponse.data can be performed by computing the
+	// CRC32C checksum of GenerateRandomBytesResponse.data and comparing
+	// your results to this field. Discard the response in case of
+	// non-matching checksum values, and perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	DataCrc32c int64 `json:"dataCrc32c,omitempty,string"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Data") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Data") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GenerateRandomBytesResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod GenerateRandomBytesResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // ImportCryptoKeyVersionRequest: Request message for
 // KeyManagementService.ImportCryptoKeyVersion.
 type ImportCryptoKeyVersionRequest struct {
-	// Algorithm: Required. The algorithm of
-	// the key being imported. This does not need to match
-	// the
-	// version_template of the CryptoKey this
+	// Algorithm: Required. The algorithm of the key being imported. This
+	// does not need to match the version_template of the CryptoKey this
 	// version imports into.
 	//
 	// Possible values:
@@ -1226,6 +1877,12 @@ type ImportCryptoKeyVersionRequest struct {
 	// key and a SHA256 digest.
 	//   "RSA_SIGN_PKCS1_4096_SHA512" - RSASSA-PKCS1-v1_5 with a 4096 bit
 	// key and a SHA512 digest.
+	//   "RSA_SIGN_RAW_PKCS1_2048" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 2048 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_3072" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 3072 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_4096" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 4096 bit key.
 	//   "RSA_DECRYPT_OAEP_2048_SHA256" - RSAES-OAEP 2048 bit key with a
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_3072_SHA256" - RSAES-OAEP 3072 bit key with a
@@ -1234,52 +1891,74 @@ type ImportCryptoKeyVersionRequest struct {
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_4096_SHA512" - RSAES-OAEP 4096 bit key with a
 	// SHA512 digest.
+	//   "RSA_DECRYPT_OAEP_2048_SHA1" - RSAES-OAEP 2048 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_3072_SHA1" - RSAES-OAEP 3072 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_4096_SHA1" - RSAES-OAEP 4096 bit key with a SHA1
+	// digest.
 	//   "EC_SIGN_P256_SHA256" - ECDSA on the NIST P-256 curve with a SHA256
 	// digest.
 	//   "EC_SIGN_P384_SHA384" - ECDSA on the NIST P-384 curve with a SHA384
 	// digest.
+	//   "EC_SIGN_SECP256K1_SHA256" - ECDSA on the non-NIST secp256k1 curve.
+	// This curve is only supported for HSM protection level.
+	//   "HMAC_SHA256" - HMAC-SHA256 signing with a 256 bit key.
+	//   "HMAC_SHA1" - HMAC-SHA1 signing with a 160 bit key.
+	//   "HMAC_SHA384" - HMAC-SHA384 signing with a 384 bit key.
+	//   "HMAC_SHA512" - HMAC-SHA512 signing with a 512 bit key.
+	//   "HMAC_SHA224" - HMAC-SHA224 signing with a 224 bit key.
+	//   "EXTERNAL_SYMMETRIC_ENCRYPTION" - Algorithm representing symmetric
+	// encryption by an external key manager.
 	Algorithm string `json:"algorithm,omitempty"`
 
-	// ImportJob: Required. The name of the ImportJob that was used to
-	// wrap this key material.
+	// CryptoKeyVersion: Optional. The optional name of an existing
+	// CryptoKeyVersion to target for an import operation. If this field is
+	// not present, a new CryptoKeyVersion containing the supplied key
+	// material is created. If this field is present, the supplied key
+	// material is imported into the existing CryptoKeyVersion. To import
+	// into an existing CryptoKeyVersion, the CryptoKeyVersion must be a
+	// child of ImportCryptoKeyVersionRequest.parent, have been previously
+	// created via ImportCryptoKeyVersion, and be in DESTROYED or
+	// IMPORT_FAILED state. The key material and algorithm must match the
+	// previous CryptoKeyVersion exactly if the CryptoKeyVersion has ever
+	// contained key material.
+	CryptoKeyVersion string `json:"cryptoKeyVersion,omitempty"`
+
+	// ImportJob: Required. The name of the ImportJob that was used to wrap
+	// this key material.
 	ImportJob string `json:"importJob,omitempty"`
 
-	// RsaAesWrappedKey: Wrapped key material produced
-	// with
-	// RSA_OAEP_3072_SHA1_AES_256
-	// or
-	// RSA_OAEP_4096_SHA1_AES_256.
-	//
-	// This field contains the concatenation of two wrapped keys:
-	// <ol>
-	//   <li>An ephemeral AES-256 wrapping key wrapped with the
-	//       public_key using RSAES-OAEP with SHA-1,
-	//       MGF1 with SHA-1, and an empty label.
-	//   </li>
-	//   <li>The key to be imported, wrapped with the ephemeral AES-256 key
-	//       using AES-KWP (RFC 5649).
-	//   </li>
-	// </ol>
-	//
-	// If importing symmetric key material, it is expected that the
-	// unwrapped
-	// key contains plain bytes. If importing asymmetric key material, it
-	// is
-	// expected that the unwrapped key is in PKCS#8-encoded DER format
-	// (the
-	// PrivateKeyInfo structure from RFC 5208).
-	//
-	// This format is the same as the format produced by PKCS#11
-	// mechanism
-	// CKM_RSA_AES_KEY_WRAP.
+	// RsaAesWrappedKey: Optional. This field has the same meaning as
+	// wrapped_key. Prefer to use that field in new work. Either that field
+	// or this field (but not both) must be specified.
 	RsaAesWrappedKey string `json:"rsaAesWrappedKey,omitempty"`
+
+	// WrappedKey: Optional. The wrapped key material to import. Before
+	// wrapping, key material must be formatted. If importing symmetric key
+	// material, the expected key material format is plain bytes. If
+	// importing asymmetric key material, the expected key material format
+	// is PKCS#8-encoded DER (the PrivateKeyInfo structure from RFC 5208).
+	// When wrapping with import methods (RSA_OAEP_3072_SHA1_AES_256 or
+	// RSA_OAEP_4096_SHA1_AES_256 or RSA_OAEP_3072_SHA256_AES_256 or
+	// RSA_OAEP_4096_SHA256_AES_256), this field must contain the
+	// concatenation of: 1. An ephemeral AES-256 wrapping key wrapped with
+	// the public_key using RSAES-OAEP with SHA-1/SHA-256, MGF1 with
+	// SHA-1/SHA-256, and an empty label. 2. The formatted key to be
+	// imported, wrapped with the ephemeral AES-256 key using AES-KWP (RFC
+	// 5649). This format is the same as the format produced by PKCS#11
+	// mechanism CKM_RSA_AES_KEY_WRAP. When wrapping with import methods
+	// (RSA_OAEP_3072_SHA256 or RSA_OAEP_4096_SHA256), this field must
+	// contain the formatted key to be imported, wrapped with the public_key
+	// using RSAES-OAEP with SHA-256, MGF1 with SHA-256, and an empty label.
+	WrappedKey string `json:"wrappedKey,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Algorithm") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Algorithm") to include in
@@ -1297,55 +1976,31 @@ func (s *ImportCryptoKeyVersionRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// ImportJob: An ImportJob can be used to create CryptoKeys
-// and
-// CryptoKeyVersions using pre-existing key material,
-// generated outside of Cloud KMS.
-//
-// When an ImportJob is created, Cloud KMS will generate a "wrapping
-// key",
-// which is a public/private key pair. You use the wrapping key to
-// encrypt (also
-// known as wrap) the pre-existing key material to protect it during the
-// import
-// process. The nature of the wrapping key depends on the choice
-// of
-// import_method. When the wrapping key generation
-// is complete, the state will be set to
-// ACTIVE and the public_key
-// can be fetched. The fetched public key can then be used to wrap
-// your
-// pre-existing key material.
-//
-// Once the key material is wrapped, it can be imported into a
-// new
-// CryptoKeyVersion in an existing CryptoKey by
-// calling
-// ImportCryptoKeyVersion.
-// Multiple CryptoKeyVersions can be imported with a single
-// ImportJob. Cloud KMS uses the private key portion of the wrapping key
-// to
-// unwrap the key material. Only Cloud KMS has access to the private
-// key.
-//
-// An ImportJob expires 3 days after it is created. Once expired, Cloud
-// KMS
-// will no longer be able to import or unwrap any key material that was
-// wrapped
-// with the ImportJob's public key.
-//
-// For more information, see
-// [Importing a key](https://cloud.google.com/kms/docs/importing-a-key).
+// ImportJob: An ImportJob can be used to create CryptoKeys and
+// CryptoKeyVersions using pre-existing key material, generated outside
+// of Cloud KMS. When an ImportJob is created, Cloud KMS will generate a
+// "wrapping key", which is a public/private key pair. You use the
+// wrapping key to encrypt (also known as wrap) the pre-existing key
+// material to protect it during the import process. The nature of the
+// wrapping key depends on the choice of import_method. When the
+// wrapping key generation is complete, the state will be set to ACTIVE
+// and the public_key can be fetched. The fetched public key can then be
+// used to wrap your pre-existing key material. Once the key material is
+// wrapped, it can be imported into a new CryptoKeyVersion in an
+// existing CryptoKey by calling ImportCryptoKeyVersion. Multiple
+// CryptoKeyVersions can be imported with a single ImportJob. Cloud KMS
+// uses the private key portion of the wrapping key to unwrap the key
+// material. Only Cloud KMS has access to the private key. An ImportJob
+// expires 3 days after it is created. Once expired, Cloud KMS will no
+// longer be able to import or unwrap any key material that was wrapped
+// with the ImportJob's public key. For more information, see Importing
+// a key (https://cloud.google.com/kms/docs/importing-a-key).
 type ImportJob struct {
 	// Attestation: Output only. Statement that was generated and signed by
-	// the key creator
-	// (for example, an HSM) at key creation time. Use this statement to
-	// verify
-	// attributes of the key as stored on the HSM, independently of
-	// Google.
-	// Only present if the chosen ImportMethod is one with a
-	// protection
-	// level of HSM.
+	// the key creator (for example, an HSM) at key creation time. Use this
+	// statement to verify attributes of the key as stored on the HSM,
+	// independently of Google. Only present if the chosen ImportMethod is
+	// one with a protection level of HSM.
 	Attestation *KeyOperationAttestation `json:"attestation,omitempty"`
 
 	// CreateTime: Output only. The time at which this ImportJob was
@@ -1353,13 +2008,12 @@ type ImportJob struct {
 	CreateTime string `json:"createTime,omitempty"`
 
 	// ExpireEventTime: Output only. The time this ImportJob expired. Only
-	// present if
-	// state is EXPIRED.
+	// present if state is EXPIRED.
 	ExpireEventTime string `json:"expireEventTime,omitempty"`
 
 	// ExpireTime: Output only. The time at which this ImportJob is
-	// scheduled for
-	// expiration and can no longer be used to import key material.
+	// scheduled for expiration and can no longer be used to import key
+	// material.
 	ExpireTime string `json:"expireTime,omitempty"`
 
 	// GenerateTime: Output only. The time this ImportJob's key material was
@@ -1372,67 +2026,76 @@ type ImportJob struct {
 	// Possible values:
 	//   "IMPORT_METHOD_UNSPECIFIED" - Not specified.
 	//   "RSA_OAEP_3072_SHA1_AES_256" - This ImportMethod represents the
-	// CKM_RSA_AES_KEY_WRAP key wrapping
-	// scheme defined in the PKCS #11 standard. In summary, this
-	// involves
-	// wrapping the raw key with an ephemeral AES key, and wrapping
-	// the
-	// ephemeral AES key with a 3072 bit RSA key. For more details, see
-	// [RSA AES key
-	// wrap
-	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/co
-	// s01/pkcs11-curr-v2.40-cos01.html#_Toc408226908).
+	// CKM_RSA_AES_KEY_WRAP key wrapping scheme defined in the PKCS #11
+	// standard. In summary, this involves wrapping the raw key with an
+	// ephemeral AES key, and wrapping the ephemeral AES key with a 3072 bit
+	// RSA key. For more details, see [RSA AES key wrap
+	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/p
+	// kcs11-curr-v2.40-cos01.html#_Toc408226908).
 	//   "RSA_OAEP_4096_SHA1_AES_256" - This ImportMethod represents the
-	// CKM_RSA_AES_KEY_WRAP key wrapping
-	// scheme defined in the PKCS #11 standard. In summary, this
-	// involves
-	// wrapping the raw key with an ephemeral AES key, and wrapping
-	// the
-	// ephemeral AES key with a 4096 bit RSA key. For more details, see
-	// [RSA AES key
-	// wrap
-	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/co
-	// s01/pkcs11-curr-v2.40-cos01.html#_Toc408226908).
+	// CKM_RSA_AES_KEY_WRAP key wrapping scheme defined in the PKCS #11
+	// standard. In summary, this involves wrapping the raw key with an
+	// ephemeral AES key, and wrapping the ephemeral AES key with a 4096 bit
+	// RSA key. For more details, see [RSA AES key wrap
+	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/p
+	// kcs11-curr-v2.40-cos01.html#_Toc408226908).
+	//   "RSA_OAEP_3072_SHA256_AES_256" - This ImportMethod represents the
+	// CKM_RSA_AES_KEY_WRAP key wrapping scheme defined in the PKCS #11
+	// standard. In summary, this involves wrapping the raw key with an
+	// ephemeral AES key, and wrapping the ephemeral AES key with a 3072 bit
+	// RSA key. For more details, see [RSA AES key wrap
+	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/p
+	// kcs11-curr-v2.40-cos01.html#_Toc408226908).
+	//   "RSA_OAEP_4096_SHA256_AES_256" - This ImportMethod represents the
+	// CKM_RSA_AES_KEY_WRAP key wrapping scheme defined in the PKCS #11
+	// standard. In summary, this involves wrapping the raw key with an
+	// ephemeral AES key, and wrapping the ephemeral AES key with a 4096 bit
+	// RSA key. For more details, see [RSA AES key wrap
+	// mechanism](http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/p
+	// kcs11-curr-v2.40-cos01.html#_Toc408226908).
+	//   "RSA_OAEP_3072_SHA256" - This ImportMethod represents RSAES-OAEP
+	// with a 3072 bit RSA key. The key material to be imported is wrapped
+	// directly with the RSA key. Due to technical limitations of RSA
+	// wrapping, this method cannot be used to wrap RSA keys for import.
+	//   "RSA_OAEP_4096_SHA256" - This ImportMethod represents RSAES-OAEP
+	// with a 4096 bit RSA key. The key material to be imported is wrapped
+	// directly with the RSA key. Due to technical limitations of RSA
+	// wrapping, this method cannot be used to wrap RSA keys for import.
 	ImportMethod string `json:"importMethod,omitempty"`
 
-	// Name: Output only. The resource name for this ImportJob in the
-	// format
+	// Name: Output only. The resource name for this ImportJob in the format
 	// `projects/*/locations/*/keyRings/*/importJobs/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProtectionLevel: Required. Immutable. The protection level of the
-	// ImportJob. This must match the
-	// protection_level of the
-	// version_template on the CryptoKey you
-	// attempt to import into.
+	// ImportJob. This must match the protection_level of the
+	// version_template on the CryptoKey you attempt to import into.
 	//
 	// Possible values:
 	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
 	//   "SOFTWARE" - Crypto operations are performed in software.
 	//   "HSM" - Crypto operations are performed in a Hardware Security
 	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
 	ProtectionLevel string `json:"protectionLevel,omitempty"`
 
 	// PublicKey: Output only. The public key with which to wrap key
-	// material prior to
-	// import. Only returned if state is
-	// ACTIVE.
+	// material prior to import. Only returned if state is ACTIVE.
 	PublicKey *WrappingPublicKey `json:"publicKey,omitempty"`
 
 	// State: Output only. The current state of the ImportJob, indicating if
-	// it can
-	// be used.
+	// it can be used.
 	//
 	// Possible values:
 	//   "IMPORT_JOB_STATE_UNSPECIFIED" - Not specified.
 	//   "PENDING_GENERATION" - The wrapping key for this job is still being
-	// generated. It may not be
-	// used. Cloud KMS will automatically mark this job as
-	// ACTIVE as soon as the wrapping key is generated.
-	//   "ACTIVE" - This job may be used in
-	// CreateCryptoKey and
-	// CreateCryptoKeyVersion
-	// requests.
+	// generated. It may not be used. Cloud KMS will automatically mark this
+	// job as ACTIVE as soon as the wrapping key is generated.
+	//   "ACTIVE" - This job may be used in CreateCryptoKey and
+	// CreateCryptoKeyVersion requests.
 	//   "EXPIRED" - This job can no longer be used and may not leave this
 	// state once entered.
 	State string `json:"state,omitempty"`
@@ -1443,10 +2106,10 @@ type ImportJob struct {
 
 	// ForceSendFields is a list of field names (e.g. "Attestation") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Attestation") to include
@@ -1465,14 +2128,15 @@ func (s *ImportJob) MarshalJSON() ([]byte, error) {
 }
 
 // KeyOperationAttestation: Contains an HSM-generated attestation about
-// a key operation. For more
-// information, see [Verifying
-// attestations]
+// a key operation. For more information, see [Verifying attestations]
 // (https://cloud.google.com/kms/docs/attest-key).
 type KeyOperationAttestation struct {
+	// CertChains: Output only. The certificate chains needed to validate
+	// the attestation
+	CertChains *CertificateChains `json:"certChains,omitempty"`
+
 	// Content: Output only. The attestation data provided by the HSM when
-	// the key
-	// operation was performed.
+	// the key operation was performed.
 	Content string `json:"content,omitempty"`
 
 	// Format: Output only. The format of the attestation data.
@@ -1480,22 +2144,22 @@ type KeyOperationAttestation struct {
 	// Possible values:
 	//   "ATTESTATION_FORMAT_UNSPECIFIED" - Not specified.
 	//   "CAVIUM_V1_COMPRESSED" - Cavium HSM attestation compressed with
-	// gzip. Note that this format is
-	// defined by Cavium and subject to change at any time.
+	// gzip. Note that this format is defined by Cavium and subject to
+	// change at any time. See
+	// https://www.marvell.com/products/security-solutions/nitrox-hs-adapters/software-key-attestation.html.
 	//   "CAVIUM_V2_COMPRESSED" - Cavium HSM attestation V2 compressed with
-	// gzip. This is a new format
-	// introduced in Cavium's version 3.2-08.
+	// gzip. This is a new format introduced in Cavium's version 3.2-08.
 	Format string `json:"format,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "Content") to
+	// ForceSendFields is a list of field names (e.g. "CertChains") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Content") to include in
+	// NullFields is a list of field names (e.g. "CertChains") to include in
 	// API requests with the JSON null value. By default, fields with empty
 	// values are omitted from API requests. However, any field with an
 	// empty value appearing in NullFields will be sent to the server as
@@ -1515,8 +2179,7 @@ type KeyRing struct {
 	// CreateTime: Output only. The time at which this KeyRing was created.
 	CreateTime string `json:"createTime,omitempty"`
 
-	// Name: Output only. The resource name for the KeyRing in the
-	// format
+	// Name: Output only. The resource name for the KeyRing in the format
 	// `projects/*/locations/*/keyRings/*`.
 	Name string `json:"name,omitempty"`
 
@@ -1526,10 +2189,10 @@ type KeyRing struct {
 
 	// ForceSendFields is a list of field names (e.g. "CreateTime") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "CreateTime") to include in
@@ -1554,14 +2217,11 @@ type ListCryptoKeyVersionsResponse struct {
 	CryptoKeyVersions []*CryptoKeyVersion `json:"cryptoKeyVersions,omitempty"`
 
 	// NextPageToken: A token to retrieve next page of results. Pass this
-	// value in
-	// ListCryptoKeyVersionsRequest.page_token to retrieve the next page
-	// of
-	// results.
+	// value in ListCryptoKeyVersionsRequest.page_token to retrieve the next
+	// page of results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
-	// TotalSize: The total number of CryptoKeyVersions that matched
-	// the
+	// TotalSize: The total number of CryptoKeyVersions that matched the
 	// query.
 	TotalSize int64 `json:"totalSize,omitempty"`
 
@@ -1571,10 +2231,10 @@ type ListCryptoKeyVersionsResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "CryptoKeyVersions")
 	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "CryptoKeyVersions") to
@@ -1600,9 +2260,8 @@ type ListCryptoKeysResponse struct {
 	CryptoKeys []*CryptoKey `json:"cryptoKeys,omitempty"`
 
 	// NextPageToken: A token to retrieve next page of results. Pass this
-	// value in
-	// ListCryptoKeysRequest.page_token to retrieve the next page of
-	// results.
+	// value in ListCryptoKeysRequest.page_token to retrieve the next page
+	// of results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// TotalSize: The total number of CryptoKeys that matched the query.
@@ -1614,10 +2273,10 @@ type ListCryptoKeysResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "CryptoKeys") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "CryptoKeys") to include in
@@ -1635,6 +2294,48 @@ func (s *ListCryptoKeysResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// ListEkmConnectionsResponse: Response message for
+// EkmService.ListEkmConnections.
+type ListEkmConnectionsResponse struct {
+	// EkmConnections: The list of EkmConnections.
+	EkmConnections []*EkmConnection `json:"ekmConnections,omitempty"`
+
+	// NextPageToken: A token to retrieve next page of results. Pass this
+	// value in ListEkmConnectionsRequest.page_token to retrieve the next
+	// page of results.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+
+	// TotalSize: The total number of EkmConnections that matched the query.
+	TotalSize int64 `json:"totalSize,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "EkmConnections") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EkmConnections") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ListEkmConnectionsResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod ListEkmConnectionsResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // ListImportJobsResponse: Response message for
 // KeyManagementService.ListImportJobs.
 type ListImportJobsResponse struct {
@@ -1642,9 +2343,8 @@ type ListImportJobsResponse struct {
 	ImportJobs []*ImportJob `json:"importJobs,omitempty"`
 
 	// NextPageToken: A token to retrieve next page of results. Pass this
-	// value in
-	// ListImportJobsRequest.page_token to retrieve the next page of
-	// results.
+	// value in ListImportJobsRequest.page_token to retrieve the next page
+	// of results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// TotalSize: The total number of ImportJobs that matched the query.
@@ -1656,10 +2356,10 @@ type ListImportJobsResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "ImportJobs") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "ImportJobs") to include in
@@ -1684,8 +2384,8 @@ type ListKeyRingsResponse struct {
 	KeyRings []*KeyRing `json:"keyRings,omitempty"`
 
 	// NextPageToken: A token to retrieve next page of results. Pass this
-	// value in
-	// ListKeyRingsRequest.page_token to retrieve the next page of results.
+	// value in ListKeyRingsRequest.page_token to retrieve the next page of
+	// results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// TotalSize: The total number of KeyRings that matched the query.
@@ -1697,10 +2397,10 @@ type ListKeyRingsResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "KeyRings") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "KeyRings") to include in
@@ -1734,10 +2434,10 @@ type ListLocationsResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "Locations") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Locations") to include in
@@ -1758,13 +2458,11 @@ func (s *ListLocationsResponse) MarshalJSON() ([]byte, error) {
 // Location: A resource that represents Google Cloud Platform location.
 type Location struct {
 	// DisplayName: The friendly name for this location, typically a nearby
-	// city name.
-	// For example, "Tokyo".
+	// city name. For example, "Tokyo".
 	DisplayName string `json:"displayName,omitempty"`
 
 	// Labels: Cross-service attributes for the location. For example
-	//
-	//     {"cloud.googleapis.com/region": "us-east1"}
+	// {"cloud.googleapis.com/region": "us-east1"}
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// LocationId: The canonical id for this location. For example:
@@ -1772,13 +2470,12 @@ type Location struct {
 	LocationId string `json:"locationId,omitempty"`
 
 	// Metadata: Service-specific metadata. For example the available
-	// capacity at the given
-	// location.
+	// capacity at the given location.
 	Metadata googleapi.RawMessage `json:"metadata,omitempty"`
 
 	// Name: Resource name for the location, which may vary between
-	// implementations.
-	// For example: "projects/example-project/locations/us-east1"
+	// implementations. For example:
+	// "projects/example-project/locations/us-east1"
 	Name string `json:"name,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1787,10 +2484,10 @@ type Location struct {
 
 	// ForceSendFields is a list of field names (e.g. "DisplayName") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "DisplayName") to include
@@ -1811,20 +2508,23 @@ func (s *Location) MarshalJSON() ([]byte, error) {
 // LocationMetadata: Cloud KMS metadata for the given
 // google.cloud.location.Location.
 type LocationMetadata struct {
-	// HsmAvailable: Indicates whether CryptoKeys with
-	// protection_level
-	// HSM can be created in this location.
+	// EkmAvailable: Indicates whether CryptoKeys with protection_level
+	// EXTERNAL can be created in this location.
+	EkmAvailable bool `json:"ekmAvailable,omitempty"`
+
+	// HsmAvailable: Indicates whether CryptoKeys with protection_level HSM
+	// can be created in this location.
 	HsmAvailable bool `json:"hsmAvailable,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "HsmAvailable") to
+	// ForceSendFields is a list of field names (e.g. "EkmAvailable") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "HsmAvailable") to include
+	// NullFields is a list of field names (e.g. "EkmAvailable") to include
 	// in API requests with the JSON null value. By default, fields with
 	// empty values are omitted from API requests. However, any field with
 	// an empty value appearing in NullFields will be sent to the server as
@@ -1839,126 +2539,348 @@ func (s *LocationMetadata) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Policy: Defines an Identity and Access Management (IAM) policy. It is
-// used to
-// specify access control policies for Cloud Platform resources.
-//
-//
-// A `Policy` is a collection of `bindings`. A `binding` binds one or
-// more
-// `members` to a single `role`. Members can be user accounts, service
-// accounts,
-// Google groups, and domains (such as G Suite). A `role` is a named
-// list of
-// permissions (defined by IAM or configured by users). A `binding`
-// can
-// optionally specify a `condition`, which is a logic expression that
-// further
-// constrains the role binding based on attributes about the request
-// and/or
-// target resource.
-//
-// **JSON Example**
-//
-//     {
-//       "bindings": [
-//         {
-//           "role": "roles/resourcemanager.organizationAdmin",
-//           "members": [
-//             "user:mike@example.com",
-//             "group:admins@example.com",
-//             "domain:google.com",
-//
-// "serviceAccount:my-project-id@appspot.gserviceaccount.com"
-//           ]
-//         },
-//         {
-//           "role": "roles/resourcemanager.organizationViewer",
-//           "members": ["user:eve@example.com"],
-//           "condition": {
-//             "title": "expirable access",
-//             "description": "Does not grant access after Sep 2020",
-//             "expression": "request.time <
-//             timestamp('2020-10-01T00:00:00.000Z')",
-//           }
-//         }
-//       ]
-//     }
-//
-// **YAML Example**
-//
-//     bindings:
-//     - members:
-//       - user:mike@example.com
-//       - group:admins@example.com
-//       - domain:google.com
-//       - serviceAccount:my-project-id@appspot.gserviceaccount.com
-//       role: roles/resourcemanager.organizationAdmin
-//     - members:
-//       - user:eve@example.com
-//       role: roles/resourcemanager.organizationViewer
-//       condition:
-//         title: expirable access
-//         description: Does not grant access after Sep 2020
-//         expression: request.time <
-// timestamp('2020-10-01T00:00:00.000Z')
-//
-// For a description of IAM and its features, see the
-// [IAM developer's guide](https://cloud.google.com/iam/docs).
+// MacSignRequest: Request message for KeyManagementService.MacSign.
+type MacSignRequest struct {
+	// Data: Required. The data to sign. The MAC tag is computed over this
+	// data field based on the specific algorithm.
+	Data string `json:"data,omitempty"`
+
+	// DataCrc32c: Optional. An optional CRC32C checksum of the
+	// MacSignRequest.data. If specified, KeyManagementService will verify
+	// the integrity of the received MacSignRequest.data using this
+	// checksum. KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that CRC32C(MacSignRequest.data) is equal to
+	// MacSignRequest.data_crc32c, and if so, perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	DataCrc32c int64 `json:"dataCrc32c,omitempty,string"`
+
+	// ForceSendFields is a list of field names (e.g. "Data") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Data") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MacSignRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod MacSignRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// MacSignResponse: Response message for KeyManagementService.MacSign.
+type MacSignResponse struct {
+	// Mac: The created signature.
+	Mac string `json:"mac,omitempty"`
+
+	// MacCrc32c: Integrity verification field. A CRC32C checksum of the
+	// returned MacSignResponse.mac. An integrity check of
+	// MacSignResponse.mac can be performed by computing the CRC32C checksum
+	// of MacSignResponse.mac and comparing your results to this field.
+	// Discard the response in case of non-matching checksum values, and
+	// perform a limited number of retries. A persistent mismatch may
+	// indicate an issue in your computation of the CRC32C checksum. Note:
+	// This field is defined as int64 for reasons of compatibility across
+	// different languages. However, it is a non-negative integer, which
+	// will never exceed 2^32-1, and can be safely downconverted to uint32
+	// in languages that support this type.
+	MacCrc32c int64 `json:"macCrc32c,omitempty,string"`
+
+	// Name: The resource name of the CryptoKeyVersion used for signing.
+	// Check this field to verify that the intended resource was used for
+	// signing.
+	Name string `json:"name,omitempty"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used for
+	// signing.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// VerifiedDataCrc32c: Integrity verification field. A flag indicating
+	// whether MacSignRequest.data_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// data. A false value of this field indicates either that
+	// MacSignRequest.data_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// MacSignRequest.data_crc32c but this field is still false, discard the
+	// response and perform a limited number of retries.
+	VerifiedDataCrc32c bool `json:"verifiedDataCrc32c,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Mac") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Mac") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MacSignResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod MacSignResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// MacVerifyRequest: Request message for KeyManagementService.MacVerify.
+type MacVerifyRequest struct {
+	// Data: Required. The data used previously as a MacSignRequest.data to
+	// generate the MAC tag.
+	Data string `json:"data,omitempty"`
+
+	// DataCrc32c: Optional. An optional CRC32C checksum of the
+	// MacVerifyRequest.data. If specified, KeyManagementService will verify
+	// the integrity of the received MacVerifyRequest.data using this
+	// checksum. KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that CRC32C(MacVerifyRequest.data) is equal to
+	// MacVerifyRequest.data_crc32c, and if so, perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	DataCrc32c int64 `json:"dataCrc32c,omitempty,string"`
+
+	// Mac: Required. The signature to verify.
+	Mac string `json:"mac,omitempty"`
+
+	// MacCrc32c: Optional. An optional CRC32C checksum of the
+	// MacVerifyRequest.mac. If specified, KeyManagementService will verify
+	// the integrity of the received MacVerifyRequest.mac using this
+	// checksum. KeyManagementService will report an error if the checksum
+	// verification fails. If you receive a checksum error, your client
+	// should verify that CRC32C(MacVerifyRequest.tag) is equal to
+	// MacVerifyRequest.mac_crc32c, and if so, perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type.
+	MacCrc32c int64 `json:"macCrc32c,omitempty,string"`
+
+	// ForceSendFields is a list of field names (e.g. "Data") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Data") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MacVerifyRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod MacVerifyRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// MacVerifyResponse: Response message for
+// KeyManagementService.MacVerify.
+type MacVerifyResponse struct {
+	// Name: The resource name of the CryptoKeyVersion used for
+	// verification. Check this field to verify that the intended resource
+	// was used for verification.
+	Name string `json:"name,omitempty"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion used for
+	// verification.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
+
+	// Success: This field indicates whether or not the verification
+	// operation for MacVerifyRequest.mac over MacVerifyRequest.data was
+	// successful.
+	Success bool `json:"success,omitempty"`
+
+	// VerifiedDataCrc32c: Integrity verification field. A flag indicating
+	// whether MacVerifyRequest.data_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// data. A false value of this field indicates either that
+	// MacVerifyRequest.data_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// MacVerifyRequest.data_crc32c but this field is still false, discard
+	// the response and perform a limited number of retries.
+	VerifiedDataCrc32c bool `json:"verifiedDataCrc32c,omitempty"`
+
+	// VerifiedMacCrc32c: Integrity verification field. A flag indicating
+	// whether MacVerifyRequest.mac_crc32c was received by
+	// KeyManagementService and used for the integrity verification of the
+	// data. A false value of this field indicates either that
+	// MacVerifyRequest.mac_crc32c was left unset or that it was not
+	// delivered to KeyManagementService. If you've set
+	// MacVerifyRequest.mac_crc32c but this field is still false, discard
+	// the response and perform a limited number of retries.
+	VerifiedMacCrc32c bool `json:"verifiedMacCrc32c,omitempty"`
+
+	// VerifiedSuccessIntegrity: Integrity verification field. This value is
+	// used for the integrity verification of [MacVerifyResponse.success].
+	// If the value of this field contradicts the value of
+	// [MacVerifyResponse.success], discard the response and perform a
+	// limited number of retries.
+	VerifiedSuccessIntegrity bool `json:"verifiedSuccessIntegrity,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Name") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Name") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MacVerifyResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod MacVerifyResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// Policy: An Identity and Access Management (IAM) policy, which
+// specifies access controls for Google Cloud resources. A `Policy` is a
+// collection of `bindings`. A `binding` binds one or more `members`, or
+// principals, to a single `role`. Principals can be user accounts,
+// service accounts, Google groups, and domains (such as G Suite). A
+// `role` is a named list of permissions; each `role` can be an IAM
+// predefined role or a user-created custom role. For some types of
+// Google Cloud resources, a `binding` can also specify a `condition`,
+// which is a logical expression that allows access to a resource only
+// if the expression evaluates to `true`. A condition can add
+// constraints based on attributes of the request, the resource, or
+// both. To learn which resources support conditions in their IAM
+// policies, see the IAM documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
+// **JSON example:** { "bindings": [ { "role":
+// "roles/resourcemanager.organizationAdmin", "members": [
+// "user:mike@example.com", "group:admins@example.com",
+// "domain:google.com",
+// "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, {
+// "role": "roles/resourcemanager.organizationViewer", "members": [
+// "user:eve@example.com" ], "condition": { "title": "expirable access",
+// "description": "Does not grant access after Sep 2020", "expression":
+// "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ],
+// "etag": "BwWWja0YfJA=", "version": 3 } **YAML example:** bindings: -
+// members: - user:mike@example.com - group:admins@example.com -
+// domain:google.com -
+// serviceAccount:my-project-id@appspot.gserviceaccount.com role:
+// roles/resourcemanager.organizationAdmin - members: -
+// user:eve@example.com role: roles/resourcemanager.organizationViewer
+// condition: title: expirable access description: Does not grant access
+// after Sep 2020 expression: request.time <
+// timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3
+// For a description of IAM and its features, see the IAM documentation
+// (https://cloud.google.com/iam/docs/).
 type Policy struct {
 	// AuditConfigs: Specifies cloud audit logging configuration for this
 	// policy.
 	AuditConfigs []*AuditConfig `json:"auditConfigs,omitempty"`
 
-	// Bindings: Associates a list of `members` to a `role`. Optionally may
-	// specify a
-	// `condition` that determines when binding is in effect.
-	// `bindings` with no members will result in an error.
+	// Bindings: Associates a list of `members`, or principals, with a
+	// `role`. Optionally, may specify a `condition` that determines how and
+	// when the `bindings` are applied. Each of the `bindings` must contain
+	// at least one principal. The `bindings` in a `Policy` can refer to up
+	// to 1,500 principals; up to 250 of these principals can be Google
+	// groups. Each occurrence of a principal counts towards these limits.
+	// For example, if the `bindings` grant 50 different roles to
+	// `user:alice@example.com`, and not to any other principal, then you
+	// can add another 1,450 principals to the `bindings` in the `Policy`.
 	Bindings []*Binding `json:"bindings,omitempty"`
 
 	// Etag: `etag` is used for optimistic concurrency control as a way to
-	// help
-	// prevent simultaneous updates of a policy from overwriting each
-	// other.
-	// It is strongly suggested that systems make use of the `etag` in
-	// the
-	// read-modify-write cycle to perform policy updates in order to avoid
-	// race
-	// conditions: An `etag` is returned in the response to `getIamPolicy`,
-	// and
-	// systems are expected to put that etag in the request to
-	// `setIamPolicy` to
-	// ensure that their change will be applied to the same version of the
-	// policy.
-	//
-	// If no `etag` is provided in the call to `setIamPolicy`, then the
-	// existing
-	// policy is overwritten. Due to blind-set semantics of an etag-less
-	// policy,
-	// 'setIamPolicy' will not fail even if either of incoming or stored
-	// policy
-	// does not meet the version requirements.
+	// help prevent simultaneous updates of a policy from overwriting each
+	// other. It is strongly suggested that systems make use of the `etag`
+	// in the read-modify-write cycle to perform policy updates in order to
+	// avoid race conditions: An `etag` is returned in the response to
+	// `getIamPolicy`, and systems are expected to put that etag in the
+	// request to `setIamPolicy` to ensure that their change will be applied
+	// to the same version of the policy. **Important:** If you use IAM
+	// Conditions, you must include the `etag` field whenever you call
+	// `setIamPolicy`. If you omit this field, then IAM allows you to
+	// overwrite a version `3` policy with a version `1` policy, and all of
+	// the conditions in the version `3` policy are lost.
 	Etag string `json:"etag,omitempty"`
 
-	// Version: Specifies the format of the policy.
-	//
-	// Valid values are 0, 1, and 3. Requests specifying an invalid value
-	// will be
-	// rejected.
-	//
-	// Operations affecting conditional bindings must specify version 3.
-	// This can
-	// be either setting a conditional policy, modifying a conditional
-	// binding,
-	// or removing a conditional binding from the stored conditional
-	// policy.
-	// Operations on non-conditional policies may specify any valid value
-	// or
-	// leave the field unset.
-	//
-	// If no etag is provided in the call to `setIamPolicy`, any
-	// version
-	// compliance checks on the incoming and/or stored policy is skipped.
+	// Version: Specifies the format of the policy. Valid values are `0`,
+	// `1`, and `3`. Requests that specify an invalid value are rejected.
+	// Any operation that affects conditional role bindings must specify
+	// version `3`. This requirement applies to the following operations: *
+	// Getting a policy that includes a conditional role binding * Adding a
+	// conditional role binding to a policy * Changing a conditional role
+	// binding in a policy * Removing any role binding, with or without a
+	// condition, from a policy that includes conditions **Important:** If
+	// you use IAM Conditions, you must include the `etag` field whenever
+	// you call `setIamPolicy`. If you omit this field, then IAM allows you
+	// to overwrite a version `3` policy with a version `1` policy, and all
+	// of the conditions in the version `3` policy are lost. If a policy
+	// does not include any conditions, operations on that policy may
+	// specify any valid version or leave the field unset. To learn which
+	// resources support conditions in their IAM policies, see the IAM
+	// documentation
+	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	Version int64 `json:"version,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1967,10 +2889,10 @@ type Policy struct {
 
 	// ForceSendFields is a list of field names (e.g. "AuditConfigs") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "AuditConfigs") to include
@@ -1988,12 +2910,10 @@ func (s *Policy) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// PublicKey: The public key for a given CryptoKeyVersion. Obtained
-// via
+// PublicKey: The public key for a given CryptoKeyVersion. Obtained via
 // GetPublicKey.
 type PublicKey struct {
-	// Algorithm: The Algorithm associated
-	// with this key.
+	// Algorithm: The Algorithm associated with this key.
 	//
 	// Possible values:
 	//   "CRYPTO_KEY_VERSION_ALGORITHM_UNSPECIFIED" - Not specified.
@@ -2014,6 +2934,12 @@ type PublicKey struct {
 	// key and a SHA256 digest.
 	//   "RSA_SIGN_PKCS1_4096_SHA512" - RSASSA-PKCS1-v1_5 with a 4096 bit
 	// key and a SHA512 digest.
+	//   "RSA_SIGN_RAW_PKCS1_2048" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 2048 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_3072" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 3072 bit key.
+	//   "RSA_SIGN_RAW_PKCS1_4096" - RSASSA-PKCS1-v1_5 signing without
+	// encoding, with a 4096 bit key.
 	//   "RSA_DECRYPT_OAEP_2048_SHA256" - RSAES-OAEP 2048 bit key with a
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_3072_SHA256" - RSAES-OAEP 3072 bit key with a
@@ -2022,22 +2948,65 @@ type PublicKey struct {
 	// SHA256 digest.
 	//   "RSA_DECRYPT_OAEP_4096_SHA512" - RSAES-OAEP 4096 bit key with a
 	// SHA512 digest.
+	//   "RSA_DECRYPT_OAEP_2048_SHA1" - RSAES-OAEP 2048 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_3072_SHA1" - RSAES-OAEP 3072 bit key with a SHA1
+	// digest.
+	//   "RSA_DECRYPT_OAEP_4096_SHA1" - RSAES-OAEP 4096 bit key with a SHA1
+	// digest.
 	//   "EC_SIGN_P256_SHA256" - ECDSA on the NIST P-256 curve with a SHA256
 	// digest.
 	//   "EC_SIGN_P384_SHA384" - ECDSA on the NIST P-384 curve with a SHA384
 	// digest.
+	//   "EC_SIGN_SECP256K1_SHA256" - ECDSA on the non-NIST secp256k1 curve.
+	// This curve is only supported for HSM protection level.
+	//   "HMAC_SHA256" - HMAC-SHA256 signing with a 256 bit key.
+	//   "HMAC_SHA1" - HMAC-SHA1 signing with a 160 bit key.
+	//   "HMAC_SHA384" - HMAC-SHA384 signing with a 384 bit key.
+	//   "HMAC_SHA512" - HMAC-SHA512 signing with a 512 bit key.
+	//   "HMAC_SHA224" - HMAC-SHA224 signing with a 224 bit key.
+	//   "EXTERNAL_SYMMETRIC_ENCRYPTION" - Algorithm representing symmetric
+	// encryption by an external key manager.
 	Algorithm string `json:"algorithm,omitempty"`
 
+	// Name: The name of the CryptoKeyVersion public key. Provided here for
+	// verification. NOTE: This field is in Beta.
+	Name string `json:"name,omitempty"`
+
 	// Pem: The public key, encoded in PEM format. For more information, see
-	// the
-	// [RFC 7468](https://tools.ietf.org/html/rfc7468) sections for
-	// [General
-	// Considerations](https://tools.ietf.org/html/rfc7468#section-2)
-	// and
-	// [Textual Encoding of Subject Public Key
-	// Info]
+	// the RFC 7468 (https://tools.ietf.org/html/rfc7468) sections for
+	// General Considerations
+	// (https://tools.ietf.org/html/rfc7468#section-2) and [Textual Encoding
+	// of Subject Public Key Info]
 	// (https://tools.ietf.org/html/rfc7468#section-13).
 	Pem string `json:"pem,omitempty"`
+
+	// PemCrc32c: Integrity verification field. A CRC32C checksum of the
+	// returned PublicKey.pem. An integrity check of PublicKey.pem can be
+	// performed by computing the CRC32C checksum of PublicKey.pem and
+	// comparing your results to this field. Discard the response in case of
+	// non-matching checksum values, and perform a limited number of
+	// retries. A persistent mismatch may indicate an issue in your
+	// computation of the CRC32C checksum. Note: This field is defined as
+	// int64 for reasons of compatibility across different languages.
+	// However, it is a non-negative integer, which will never exceed
+	// 2^32-1, and can be safely downconverted to uint32 in languages that
+	// support this type. NOTE: This field is in Beta.
+	PemCrc32c int64 `json:"pemCrc32c,omitempty,string"`
+
+	// ProtectionLevel: The ProtectionLevel of the CryptoKeyVersion public
+	// key.
+	//
+	// Possible values:
+	//   "PROTECTION_LEVEL_UNSPECIFIED" - Not specified.
+	//   "SOFTWARE" - Crypto operations are performed in software.
+	//   "HSM" - Crypto operations are performed in a Hardware Security
+	// Module.
+	//   "EXTERNAL" - Crypto operations are performed by an external key
+	// manager.
+	//   "EXTERNAL_VPC" - Crypto operations are performed in an EKM-over-VPC
+	// backend.
+	ProtectionLevel string `json:"protectionLevel,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
@@ -2045,10 +3014,10 @@ type PublicKey struct {
 
 	// ForceSendFields is a list of field names (e.g. "Algorithm") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Algorithm") to include in
@@ -2071,31 +3040,74 @@ func (s *PublicKey) MarshalJSON() ([]byte, error) {
 type RestoreCryptoKeyVersionRequest struct {
 }
 
+// ServiceResolver: A ServiceResolver represents an EKM replica that can
+// be reached within an EkmConnection.
+type ServiceResolver struct {
+	// EndpointFilter: Optional. The filter applied to the endpoints of the
+	// resolved service. If no filter is specified, all endpoints will be
+	// considered. An endpoint will be chosen arbitrarily from the filtered
+	// list for each request. For endpoint filter syntax and examples, see
+	// https://cloud.google.com/service-directory/docs/reference/rpc/google.cloud.servicedirectory.v1#resolveservicerequest.
+	EndpointFilter string `json:"endpointFilter,omitempty"`
+
+	// Hostname: Required. The hostname of the EKM replica used at TLS and
+	// HTTP layers.
+	Hostname string `json:"hostname,omitempty"`
+
+	// ServerCertificates: Required. A list of leaf server certificates used
+	// to authenticate HTTPS connections to the EKM replica. Currently, a
+	// maximum of 10 Certificate is supported.
+	ServerCertificates []*Certificate `json:"serverCertificates,omitempty"`
+
+	// ServiceDirectoryService: Required. The resource name of the Service
+	// Directory service pointing to an EKM replica, in the format
+	// `projects/*/locations/*/namespaces/*/services/*`.
+	ServiceDirectoryService string `json:"serviceDirectoryService,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "EndpointFilter") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EndpointFilter") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ServiceResolver) MarshalJSON() ([]byte, error) {
+	type NoMethod ServiceResolver
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // SetIamPolicyRequest: Request message for `SetIamPolicy` method.
 type SetIamPolicyRequest struct {
 	// Policy: REQUIRED: The complete policy to be applied to the
-	// `resource`. The size of
-	// the policy is limited to a few 10s of KB. An empty policy is a
-	// valid policy but certain Cloud Platform services (such as
-	// Projects)
-	// might reject them.
+	// `resource`. The size of the policy is limited to a few 10s of KB. An
+	// empty policy is a valid policy but certain Google Cloud services
+	// (such as Projects) might reject them.
 	Policy *Policy `json:"policy,omitempty"`
 
 	// UpdateMask: OPTIONAL: A FieldMask specifying which fields of the
-	// policy to modify. Only
-	// the fields in the mask will be modified. If no mask is provided,
-	// the
-	// following default mask is used:
-	// paths: "bindings, etag"
-	// This field is only used by Cloud IAM.
+	// policy to modify. Only the fields in the mask will be modified. If no
+	// mask is provided, the following default mask is used: `paths:
+	// "bindings, etag"
 	UpdateMask string `json:"updateMask,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Policy") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Policy") to include in API
@@ -2117,20 +3129,17 @@ func (s *SetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 // method.
 type TestIamPermissionsRequest struct {
 	// Permissions: The set of permissions to check for the `resource`.
-	// Permissions with
-	// wildcards (such as '*' or 'storage.*') are not allowed. For
-	// more
-	// information see
-	// [IAM
-	// Overview](https://cloud.google.com/iam/docs/overview#permissions).
+	// Permissions with wildcards (such as `*` or `storage.*`) are not
+	// allowed. For more information see IAM Overview
+	// (https://cloud.google.com/iam/docs/overview#permissions).
 	Permissions []string `json:"permissions,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Permissions") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Permissions") to include
@@ -2152,8 +3161,7 @@ func (s *TestIamPermissionsRequest) MarshalJSON() ([]byte, error) {
 // method.
 type TestIamPermissionsResponse struct {
 	// Permissions: A subset of `TestPermissionsRequest.permissions` that
-	// the caller is
-	// allowed.
+	// the caller is allowed.
 	Permissions []string `json:"permissions,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -2162,10 +3170,10 @@ type TestIamPermissionsResponse struct {
 
 	// ForceSendFields is a list of field names (e.g. "Permissions") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Permissions") to include
@@ -2192,10 +3200,10 @@ type UpdateCryptoKeyPrimaryVersionRequest struct {
 
 	// ForceSendFields is a list of field names (e.g. "CryptoKeyVersionId")
 	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "CryptoKeyVersionId") to
@@ -2215,26 +3223,23 @@ func (s *UpdateCryptoKeyPrimaryVersionRequest) MarshalJSON() ([]byte, error) {
 }
 
 // WrappingPublicKey: The public key component of the wrapping key. For
-// details of the type of
-// key this public key corresponds to, see the ImportMethod.
+// details of the type of key this public key corresponds to, see the
+// ImportMethod.
 type WrappingPublicKey struct {
 	// Pem: The public key, encoded in PEM format. For more information, see
-	// the [RFC
-	// 7468](https://tools.ietf.org/html/rfc7468) sections for
-	// [General
-	// Considerations](https://tools.ietf.org/html/rfc7468#section-2
-	// ) and
-	// [Textual Encoding of Subject Public Key
-	// Info]
+	// the RFC 7468 (https://tools.ietf.org/html/rfc7468) sections for
+	// General Considerations
+	// (https://tools.ietf.org/html/rfc7468#section-2) and [Textual Encoding
+	// of Subject Public Key Info]
 	// (https://tools.ietf.org/html/rfc7468#section-13).
 	Pem string `json:"pem,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Pem") to
 	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
 	// NullFields is a list of field names (e.g. "Pem") to include in API
@@ -2252,6 +3257,151 @@ func (s *WrappingPublicKey) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// method id "cloudkms.projects.locations.generateRandomBytes":
+
+type ProjectsLocationsGenerateRandomBytesCall struct {
+	s                          *Service
+	location                   string
+	generaterandombytesrequest *GenerateRandomBytesRequest
+	urlParams_                 gensupport.URLParams
+	ctx_                       context.Context
+	header_                    http.Header
+}
+
+// GenerateRandomBytes: Generate random bytes using the Cloud KMS
+// randomness source in the provided location.
+//
+//   - location: The project-specific location in which to generate random
+//     bytes. For example, "projects/my-project/locations/us-central1".
+func (r *ProjectsLocationsService) GenerateRandomBytes(location string, generaterandombytesrequest *GenerateRandomBytesRequest) *ProjectsLocationsGenerateRandomBytesCall {
+	c := &ProjectsLocationsGenerateRandomBytesCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.location = location
+	c.generaterandombytesrequest = generaterandombytesrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsGenerateRandomBytesCall) Fields(s ...googleapi.Field) *ProjectsLocationsGenerateRandomBytesCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsGenerateRandomBytesCall) Context(ctx context.Context) *ProjectsLocationsGenerateRandomBytesCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsGenerateRandomBytesCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsGenerateRandomBytesCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.generaterandombytesrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+location}:generateRandomBytes")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"location": c.location,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.generateRandomBytes" call.
+// Exactly one of *GenerateRandomBytesResponse or error will be non-nil.
+// Any non-2xx status code is an error. Response headers are in either
+// *GenerateRandomBytesResponse.ServerResponse.Header or (if a response
+// was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsGenerateRandomBytesCall) Do(opts ...googleapi.CallOption) (*GenerateRandomBytesResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &GenerateRandomBytesResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Generate random bytes using the Cloud KMS randomness source in the provided location.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}:generateRandomBytes",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.generateRandomBytes",
+	//   "parameterOrder": [
+	//     "location"
+	//   ],
+	//   "parameters": {
+	//     "location": {
+	//       "description": "The project-specific location in which to generate random bytes. For example, \"projects/my-project/locations/us-central1\".",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+location}:generateRandomBytes",
+	//   "request": {
+	//     "$ref": "GenerateRandomBytesRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "GenerateRandomBytesResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
 // method id "cloudkms.projects.locations.get":
 
 type ProjectsLocationsGetCall struct {
@@ -2264,6 +3414,8 @@ type ProjectsLocationsGetCall struct {
 }
 
 // Get: Gets information about a location.
+//
+// - name: Resource name for the location.
 func (r *ProjectsLocationsService) Get(name string) *ProjectsLocationsGetCall {
 	c := &ProjectsLocationsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -2307,7 +3459,7 @@ func (c *ProjectsLocationsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2345,17 +3497,17 @@ func (c *ProjectsLocationsGetCall) Do(opts ...googleapi.CallOption) (*Location, 
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Location{
 		ServerResponse: googleapi.ServerResponse{
@@ -2397,6 +3549,154 @@ func (c *ProjectsLocationsGetCall) Do(opts ...googleapi.CallOption) (*Location, 
 
 }
 
+// method id "cloudkms.projects.locations.getEkmConfig":
+
+type ProjectsLocationsGetEkmConfigCall struct {
+	s            *Service
+	name         string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// GetEkmConfig: Returns the EkmConfig singleton resource for a given
+// project and location.
+//
+// - name: The name of the EkmConfig to get.
+func (r *ProjectsLocationsService) GetEkmConfig(name string) *ProjectsLocationsGetEkmConfigCall {
+	c := &ProjectsLocationsGetEkmConfigCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsGetEkmConfigCall) Fields(s ...googleapi.Field) *ProjectsLocationsGetEkmConfigCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *ProjectsLocationsGetEkmConfigCall) IfNoneMatch(entityTag string) *ProjectsLocationsGetEkmConfigCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsGetEkmConfigCall) Context(ctx context.Context) *ProjectsLocationsGetEkmConfigCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsGetEkmConfigCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsGetEkmConfigCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.getEkmConfig" call.
+// Exactly one of *EkmConfig or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *EkmConfig.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *ProjectsLocationsGetEkmConfigCall) Do(opts ...googleapi.CallOption) (*EkmConfig, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &EkmConfig{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns the EkmConfig singleton resource for a given project and location.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConfig",
+	//   "httpMethod": "GET",
+	//   "id": "cloudkms.projects.locations.getEkmConfig",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Required. The name of the EkmConfig to get.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConfig$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}",
+	//   "response": {
+	//     "$ref": "EkmConfig"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
 // method id "cloudkms.projects.locations.list":
 
 type ProjectsLocationsListCall struct {
@@ -2410,28 +3710,34 @@ type ProjectsLocationsListCall struct {
 
 // List: Lists information about the supported locations for this
 // service.
+//
+//   - name: The resource that owns the locations collection, if
+//     applicable.
 func (r *ProjectsLocationsService) List(name string) *ProjectsLocationsListCall {
 	c := &ProjectsLocationsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
 	return c
 }
 
-// Filter sets the optional parameter "filter": The standard list
-// filter.
+// Filter sets the optional parameter "filter": A filter to narrow down
+// results to a preferred subset. The filtering language accepts strings
+// like "displayName=tokyo", and is documented in more detail in
+// AIP-160 (https://google.aip.dev/160).
 func (c *ProjectsLocationsListCall) Filter(filter string) *ProjectsLocationsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// PageSize sets the optional parameter "pageSize": The standard list
-// page size.
+// PageSize sets the optional parameter "pageSize": The maximum number
+// of results to return. If not set, the service selects a default.
 func (c *ProjectsLocationsListCall) PageSize(pageSize int64) *ProjectsLocationsListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
 	return c
 }
 
-// PageToken sets the optional parameter "pageToken": The standard list
-// page token.
+// PageToken sets the optional parameter "pageToken": A page token
+// received from the `next_page_token` field in the response. Send that
+// page token to receive the subsequent page.
 func (c *ProjectsLocationsListCall) PageToken(pageToken string) *ProjectsLocationsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -2474,7 +3780,7 @@ func (c *ProjectsLocationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2512,17 +3818,17 @@ func (c *ProjectsLocationsListCall) Do(opts ...googleapi.CallOption) (*ListLocat
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ListLocationsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -2545,7 +3851,7 @@ func (c *ProjectsLocationsListCall) Do(opts ...googleapi.CallOption) (*ListLocat
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "The standard list filter.",
+	//       "description": "A filter to narrow down results to a preferred subset. The filtering language accepts strings like `\"displayName=tokyo\"`, and is documented in more detail in [AIP-160](https://google.aip.dev/160).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -2557,13 +3863,13 @@ func (c *ProjectsLocationsListCall) Do(opts ...googleapi.CallOption) (*ListLocat
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "The standard list page size.",
+	//       "description": "The maximum number of results to return. If not set, the service selects a default.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "The standard list page token.",
+	//       "description": "A page token received from the `next_page_token` field in the response. Send that page token to receive the subsequent page.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -2601,6 +3907,1802 @@ func (c *ProjectsLocationsListCall) Pages(ctx context.Context, f func(*ListLocat
 	}
 }
 
+// method id "cloudkms.projects.locations.updateEkmConfig":
+
+type ProjectsLocationsUpdateEkmConfigCall struct {
+	s          *Service
+	name       string
+	ekmconfig  *EkmConfig
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// UpdateEkmConfig: Updates the EkmConfig singleton resource for a given
+// project and location.
+//
+//   - name: Output only. The resource name for the EkmConfig in the
+//     format `projects/*/locations/*/ekmConfig`.
+func (r *ProjectsLocationsService) UpdateEkmConfig(name string, ekmconfig *EkmConfig) *ProjectsLocationsUpdateEkmConfigCall {
+	c := &ProjectsLocationsUpdateEkmConfigCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.ekmconfig = ekmconfig
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": Required. List
+// of fields to be updated in this request.
+func (c *ProjectsLocationsUpdateEkmConfigCall) UpdateMask(updateMask string) *ProjectsLocationsUpdateEkmConfigCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsUpdateEkmConfigCall) Fields(s ...googleapi.Field) *ProjectsLocationsUpdateEkmConfigCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsUpdateEkmConfigCall) Context(ctx context.Context) *ProjectsLocationsUpdateEkmConfigCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsUpdateEkmConfigCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsUpdateEkmConfigCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.ekmconfig)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.updateEkmConfig" call.
+// Exactly one of *EkmConfig or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *EkmConfig.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *ProjectsLocationsUpdateEkmConfigCall) Do(opts ...googleapi.CallOption) (*EkmConfig, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &EkmConfig{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Updates the EkmConfig singleton resource for a given project and location.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConfig",
+	//   "httpMethod": "PATCH",
+	//   "id": "cloudkms.projects.locations.updateEkmConfig",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Output only. The resource name for the EkmConfig in the format `projects/*/locations/*/ekmConfig`.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConfig$",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "updateMask": {
+	//       "description": "Required. List of fields to be updated in this request.",
+	//       "format": "google-fieldmask",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}",
+	//   "request": {
+	//     "$ref": "EkmConfig"
+	//   },
+	//   "response": {
+	//     "$ref": "EkmConfig"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConfig.getIamPolicy":
+
+type ProjectsLocationsEkmConfigGetIamPolicyCall struct {
+	s            *Service
+	resource     string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// GetIamPolicy: Gets the access control policy for a resource. Returns
+// an empty policy if the resource exists and does not have a policy
+// set.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConfigService) GetIamPolicy(resource string) *ProjectsLocationsEkmConfigGetIamPolicyCall {
+	c := &ProjectsLocationsEkmConfigGetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	return c
+}
+
+// OptionsRequestedPolicyVersion sets the optional parameter
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsEkmConfigGetIamPolicyCall {
+	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConfigGetIamPolicyCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) IfNoneMatch(entityTag string) *ProjectsLocationsEkmConfigGetIamPolicyCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) Context(ctx context.Context) *ProjectsLocationsEkmConfigGetIamPolicyCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:getIamPolicy")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConfig.getIamPolicy" call.
+// Exactly one of *Policy or error will be non-nil. Any non-2xx status
+// code is an error. Response headers are in either
+// *Policy.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified
+// was returned.
+func (c *ProjectsLocationsEkmConfigGetIamPolicyCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Policy{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Gets the access control policy for a resource. Returns an empty policy if the resource exists and does not have a policy set.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConfig:getIamPolicy",
+	//   "httpMethod": "GET",
+	//   "id": "cloudkms.projects.locations.ekmConfig.getIamPolicy",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "options.requestedPolicyVersion": {
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "format": "int32",
+	//       "location": "query",
+	//       "type": "integer"
+	//     },
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConfig$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:getIamPolicy",
+	//   "response": {
+	//     "$ref": "Policy"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConfig.setIamPolicy":
+
+type ProjectsLocationsEkmConfigSetIamPolicyCall struct {
+	s                   *Service
+	resource            string
+	setiampolicyrequest *SetIamPolicyRequest
+	urlParams_          gensupport.URLParams
+	ctx_                context.Context
+	header_             http.Header
+}
+
+// SetIamPolicy: Sets the access control policy on the specified
+// resource. Replaces any existing policy. Can return `NOT_FOUND`,
+// `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     specified. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConfigService) SetIamPolicy(resource string, setiampolicyrequest *SetIamPolicyRequest) *ProjectsLocationsEkmConfigSetIamPolicyCall {
+	c := &ProjectsLocationsEkmConfigSetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	c.setiampolicyrequest = setiampolicyrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConfigSetIamPolicyCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConfigSetIamPolicyCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConfigSetIamPolicyCall) Context(ctx context.Context) *ProjectsLocationsEkmConfigSetIamPolicyCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConfigSetIamPolicyCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConfigSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.setiampolicyrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:setIamPolicy")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConfig.setIamPolicy" call.
+// Exactly one of *Policy or error will be non-nil. Any non-2xx status
+// code is an error. Response headers are in either
+// *Policy.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified
+// was returned.
+func (c *ProjectsLocationsEkmConfigSetIamPolicyCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Policy{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Sets the access control policy on the specified resource. Replaces any existing policy. Can return `NOT_FOUND`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConfig:setIamPolicy",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.ekmConfig.setIamPolicy",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy is being specified. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConfig$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:setIamPolicy",
+	//   "request": {
+	//     "$ref": "SetIamPolicyRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Policy"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConfig.testIamPermissions":
+
+type ProjectsLocationsEkmConfigTestIamPermissionsCall struct {
+	s                         *Service
+	resource                  string
+	testiampermissionsrequest *TestIamPermissionsRequest
+	urlParams_                gensupport.URLParams
+	ctx_                      context.Context
+	header_                   http.Header
+}
+
+// TestIamPermissions: Returns permissions that a caller has on the
+// specified resource. If the resource does not exist, this will return
+// an empty set of permissions, not a `NOT_FOUND` error. Note: This
+// operation is designed to be used for building permission-aware UIs
+// and command-line tools, not for authorization checking. This
+// operation may "fail open" without warning.
+//
+//   - resource: REQUIRED: The resource for which the policy detail is
+//     being requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConfigService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ProjectsLocationsEkmConfigTestIamPermissionsCall {
+	c := &ProjectsLocationsEkmConfigTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	c.testiampermissionsrequest = testiampermissionsrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConfigTestIamPermissionsCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConfigTestIamPermissionsCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConfigTestIamPermissionsCall) Context(ctx context.Context) *ProjectsLocationsEkmConfigTestIamPermissionsCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConfigTestIamPermissionsCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConfigTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.testiampermissionsrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:testIamPermissions")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConfig.testIamPermissions" call.
+// Exactly one of *TestIamPermissionsResponse or error will be non-nil.
+// Any non-2xx status code is an error. Response headers are in either
+// *TestIamPermissionsResponse.ServerResponse.Header or (if a response
+// was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConfigTestIamPermissionsCall) Do(opts ...googleapi.CallOption) (*TestIamPermissionsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &TestIamPermissionsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns permissions that a caller has on the specified resource. If the resource does not exist, this will return an empty set of permissions, not a `NOT_FOUND` error. Note: This operation is designed to be used for building permission-aware UIs and command-line tools, not for authorization checking. This operation may \"fail open\" without warning.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConfig:testIamPermissions",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.ekmConfig.testIamPermissions",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy detail is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConfig$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:testIamPermissions",
+	//   "request": {
+	//     "$ref": "TestIamPermissionsRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "TestIamPermissionsResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.create":
+
+type ProjectsLocationsEkmConnectionsCreateCall struct {
+	s             *Service
+	parent        string
+	ekmconnection *EkmConnection
+	urlParams_    gensupport.URLParams
+	ctx_          context.Context
+	header_       http.Header
+}
+
+// Create: Creates a new EkmConnection in a given Project and Location.
+//
+//   - parent: The resource name of the location associated with the
+//     EkmConnection, in the format `projects/*/locations/*`.
+func (r *ProjectsLocationsEkmConnectionsService) Create(parent string, ekmconnection *EkmConnection) *ProjectsLocationsEkmConnectionsCreateCall {
+	c := &ProjectsLocationsEkmConnectionsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	c.ekmconnection = ekmconnection
+	return c
+}
+
+// EkmConnectionId sets the optional parameter "ekmConnectionId":
+// Required. It must be unique within a location and match the regular
+// expression `[a-zA-Z0-9_-]{1,63}`.
+func (c *ProjectsLocationsEkmConnectionsCreateCall) EkmConnectionId(ekmConnectionId string) *ProjectsLocationsEkmConnectionsCreateCall {
+	c.urlParams_.Set("ekmConnectionId", ekmConnectionId)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsCreateCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsCreateCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsCreateCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsCreateCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsCreateCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsCreateCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.ekmconnection)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/ekmConnections")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.create" call.
+// Exactly one of *EkmConnection or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *EkmConnection.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConnectionsCreateCall) Do(opts ...googleapi.CallOption) (*EkmConnection, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &EkmConnection{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Creates a new EkmConnection in a given Project and Location.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.ekmConnections.create",
+	//   "parameterOrder": [
+	//     "parent"
+	//   ],
+	//   "parameters": {
+	//     "ekmConnectionId": {
+	//       "description": "Required. It must be unique within a location and match the regular expression `[a-zA-Z0-9_-]{1,63}`.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "parent": {
+	//       "description": "Required. The resource name of the location associated with the EkmConnection, in the format `projects/*/locations/*`.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+parent}/ekmConnections",
+	//   "request": {
+	//     "$ref": "EkmConnection"
+	//   },
+	//   "response": {
+	//     "$ref": "EkmConnection"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.get":
+
+type ProjectsLocationsEkmConnectionsGetCall struct {
+	s            *Service
+	name         string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// Get: Returns metadata for a given EkmConnection.
+//
+// - name: The name of the EkmConnection to get.
+func (r *ProjectsLocationsEkmConnectionsService) Get(name string) *ProjectsLocationsEkmConnectionsGetCall {
+	c := &ProjectsLocationsEkmConnectionsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsGetCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsGetCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *ProjectsLocationsEkmConnectionsGetCall) IfNoneMatch(entityTag string) *ProjectsLocationsEkmConnectionsGetCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsGetCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsGetCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsGetCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsGetCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.get" call.
+// Exactly one of *EkmConnection or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *EkmConnection.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConnectionsGetCall) Do(opts ...googleapi.CallOption) (*EkmConnection, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &EkmConnection{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns metadata for a given EkmConnection.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections/{ekmConnectionsId}",
+	//   "httpMethod": "GET",
+	//   "id": "cloudkms.projects.locations.ekmConnections.get",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Required. The name of the EkmConnection to get.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConnections/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}",
+	//   "response": {
+	//     "$ref": "EkmConnection"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.getIamPolicy":
+
+type ProjectsLocationsEkmConnectionsGetIamPolicyCall struct {
+	s            *Service
+	resource     string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// GetIamPolicy: Gets the access control policy for a resource. Returns
+// an empty policy if the resource exists and does not have a policy
+// set.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConnectionsService) GetIamPolicy(resource string) *ProjectsLocationsEkmConnectionsGetIamPolicyCall {
+	c := &ProjectsLocationsEkmConnectionsGetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	return c
+}
+
+// OptionsRequestedPolicyVersion sets the optional parameter
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsEkmConnectionsGetIamPolicyCall {
+	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsGetIamPolicyCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) IfNoneMatch(entityTag string) *ProjectsLocationsEkmConnectionsGetIamPolicyCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsGetIamPolicyCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:getIamPolicy")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.getIamPolicy" call.
+// Exactly one of *Policy or error will be non-nil. Any non-2xx status
+// code is an error. Response headers are in either
+// *Policy.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified
+// was returned.
+func (c *ProjectsLocationsEkmConnectionsGetIamPolicyCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Policy{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Gets the access control policy for a resource. Returns an empty policy if the resource exists and does not have a policy set.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections/{ekmConnectionsId}:getIamPolicy",
+	//   "httpMethod": "GET",
+	//   "id": "cloudkms.projects.locations.ekmConnections.getIamPolicy",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "options.requestedPolicyVersion": {
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "format": "int32",
+	//       "location": "query",
+	//       "type": "integer"
+	//     },
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConnections/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:getIamPolicy",
+	//   "response": {
+	//     "$ref": "Policy"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.list":
+
+type ProjectsLocationsEkmConnectionsListCall struct {
+	s            *Service
+	parent       string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// List: Lists EkmConnections.
+//
+//   - parent: The resource name of the location associated with the
+//     EkmConnections to list, in the format `projects/*/locations/*`.
+func (r *ProjectsLocationsEkmConnectionsService) List(parent string) *ProjectsLocationsEkmConnectionsListCall {
+	c := &ProjectsLocationsEkmConnectionsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	return c
+}
+
+// Filter sets the optional parameter "filter": Only include resources
+// that match the filter in the response. For more information, see
+// Sorting and filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
+func (c *ProjectsLocationsEkmConnectionsListCall) Filter(filter string) *ProjectsLocationsEkmConnectionsListCall {
+	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// OrderBy sets the optional parameter "orderBy": Specify how the
+// results should be sorted. If not specified, the results will be
+// sorted in the default order. For more information, see Sorting and
+// filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
+func (c *ProjectsLocationsEkmConnectionsListCall) OrderBy(orderBy string) *ProjectsLocationsEkmConnectionsListCall {
+	c.urlParams_.Set("orderBy", orderBy)
+	return c
+}
+
+// PageSize sets the optional parameter "pageSize": Optional limit on
+// the number of EkmConnections to include in the response. Further
+// EkmConnections can subsequently be obtained by including the
+// ListEkmConnectionsResponse.next_page_token in a subsequent request.
+// If unspecified, the server will pick an appropriate default.
+func (c *ProjectsLocationsEkmConnectionsListCall) PageSize(pageSize int64) *ProjectsLocationsEkmConnectionsListCall {
+	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": Optional
+// pagination token, returned earlier via
+// ListEkmConnectionsResponse.next_page_token.
+func (c *ProjectsLocationsEkmConnectionsListCall) PageToken(pageToken string) *ProjectsLocationsEkmConnectionsListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsListCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets the optional parameter which makes the operation
+// fail if the object's ETag matches the given value. This is useful for
+// getting updates only after the object has changed since the last
+// request. Use googleapi.IsNotModified to check whether the response
+// error from Do is the result of In-None-Match.
+func (c *ProjectsLocationsEkmConnectionsListCall) IfNoneMatch(entityTag string) *ProjectsLocationsEkmConnectionsListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsListCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	var body io.Reader = nil
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/ekmConnections")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.list" call.
+// Exactly one of *ListEkmConnectionsResponse or error will be non-nil.
+// Any non-2xx status code is an error. Response headers are in either
+// *ListEkmConnectionsResponse.ServerResponse.Header or (if a response
+// was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConnectionsListCall) Do(opts ...googleapi.CallOption) (*ListEkmConnectionsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &ListEkmConnectionsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Lists EkmConnections.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections",
+	//   "httpMethod": "GET",
+	//   "id": "cloudkms.projects.locations.ekmConnections.list",
+	//   "parameterOrder": [
+	//     "parent"
+	//   ],
+	//   "parameters": {
+	//     "filter": {
+	//       "description": "Optional. Only include resources that match the filter in the response. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "orderBy": {
+	//       "description": "Optional. Specify how the results should be sorted. If not specified, the results will be sorted in the default order. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "pageSize": {
+	//       "description": "Optional. Optional limit on the number of EkmConnections to include in the response. Further EkmConnections can subsequently be obtained by including the ListEkmConnectionsResponse.next_page_token in a subsequent request. If unspecified, the server will pick an appropriate default.",
+	//       "format": "int32",
+	//       "location": "query",
+	//       "type": "integer"
+	//     },
+	//     "pageToken": {
+	//       "description": "Optional. Optional pagination token, returned earlier via ListEkmConnectionsResponse.next_page_token.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "parent": {
+	//       "description": "Required. The resource name of the location associated with the EkmConnections to list, in the format `projects/*/locations/*`.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+parent}/ekmConnections",
+	//   "response": {
+	//     "$ref": "ListEkmConnectionsResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *ProjectsLocationsEkmConnectionsListCall) Pages(ctx context.Context, f func(*ListEkmConnectionsResponse) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.patch":
+
+type ProjectsLocationsEkmConnectionsPatchCall struct {
+	s             *Service
+	name          string
+	ekmconnection *EkmConnection
+	urlParams_    gensupport.URLParams
+	ctx_          context.Context
+	header_       http.Header
+}
+
+// Patch: Updates an EkmConnection's metadata.
+//
+//   - name: Output only. The resource name for the EkmConnection in the
+//     format `projects/*/locations/*/ekmConnections/*`.
+func (r *ProjectsLocationsEkmConnectionsService) Patch(name string, ekmconnection *EkmConnection) *ProjectsLocationsEkmConnectionsPatchCall {
+	c := &ProjectsLocationsEkmConnectionsPatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.ekmconnection = ekmconnection
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": Required. List
+// of fields to be updated in this request.
+func (c *ProjectsLocationsEkmConnectionsPatchCall) UpdateMask(updateMask string) *ProjectsLocationsEkmConnectionsPatchCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsPatchCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsPatchCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsPatchCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsPatchCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsPatchCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsPatchCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.ekmconnection)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.patch" call.
+// Exactly one of *EkmConnection or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *EkmConnection.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConnectionsPatchCall) Do(opts ...googleapi.CallOption) (*EkmConnection, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &EkmConnection{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Updates an EkmConnection's metadata.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections/{ekmConnectionsId}",
+	//   "httpMethod": "PATCH",
+	//   "id": "cloudkms.projects.locations.ekmConnections.patch",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Output only. The resource name for the EkmConnection in the format `projects/*/locations/*/ekmConnections/*`.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConnections/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "updateMask": {
+	//       "description": "Required. List of fields to be updated in this request.",
+	//       "format": "google-fieldmask",
+	//       "location": "query",
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}",
+	//   "request": {
+	//     "$ref": "EkmConnection"
+	//   },
+	//   "response": {
+	//     "$ref": "EkmConnection"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.setIamPolicy":
+
+type ProjectsLocationsEkmConnectionsSetIamPolicyCall struct {
+	s                   *Service
+	resource            string
+	setiampolicyrequest *SetIamPolicyRequest
+	urlParams_          gensupport.URLParams
+	ctx_                context.Context
+	header_             http.Header
+}
+
+// SetIamPolicy: Sets the access control policy on the specified
+// resource. Replaces any existing policy. Can return `NOT_FOUND`,
+// `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     specified. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConnectionsService) SetIamPolicy(resource string, setiampolicyrequest *SetIamPolicyRequest) *ProjectsLocationsEkmConnectionsSetIamPolicyCall {
+	c := &ProjectsLocationsEkmConnectionsSetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	c.setiampolicyrequest = setiampolicyrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsSetIamPolicyCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsSetIamPolicyCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsSetIamPolicyCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsSetIamPolicyCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsSetIamPolicyCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.setiampolicyrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:setIamPolicy")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.setIamPolicy" call.
+// Exactly one of *Policy or error will be non-nil. Any non-2xx status
+// code is an error. Response headers are in either
+// *Policy.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified
+// was returned.
+func (c *ProjectsLocationsEkmConnectionsSetIamPolicyCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Policy{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Sets the access control policy on the specified resource. Replaces any existing policy. Can return `NOT_FOUND`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections/{ekmConnectionsId}:setIamPolicy",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.ekmConnections.setIamPolicy",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy is being specified. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConnections/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:setIamPolicy",
+	//   "request": {
+	//     "$ref": "SetIamPolicyRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Policy"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.ekmConnections.testIamPermissions":
+
+type ProjectsLocationsEkmConnectionsTestIamPermissionsCall struct {
+	s                         *Service
+	resource                  string
+	testiampermissionsrequest *TestIamPermissionsRequest
+	urlParams_                gensupport.URLParams
+	ctx_                      context.Context
+	header_                   http.Header
+}
+
+// TestIamPermissions: Returns permissions that a caller has on the
+// specified resource. If the resource does not exist, this will return
+// an empty set of permissions, not a `NOT_FOUND` error. Note: This
+// operation is designed to be used for building permission-aware UIs
+// and command-line tools, not for authorization checking. This
+// operation may "fail open" without warning.
+//
+//   - resource: REQUIRED: The resource for which the policy detail is
+//     being requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
+func (r *ProjectsLocationsEkmConnectionsService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ProjectsLocationsEkmConnectionsTestIamPermissionsCall {
+	c := &ProjectsLocationsEkmConnectionsTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.resource = resource
+	c.testiampermissionsrequest = testiampermissionsrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsEkmConnectionsTestIamPermissionsCall) Fields(s ...googleapi.Field) *ProjectsLocationsEkmConnectionsTestIamPermissionsCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsEkmConnectionsTestIamPermissionsCall) Context(ctx context.Context) *ProjectsLocationsEkmConnectionsTestIamPermissionsCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsEkmConnectionsTestIamPermissionsCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsEkmConnectionsTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.testiampermissionsrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+resource}:testIamPermissions")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"resource": c.resource,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.ekmConnections.testIamPermissions" call.
+// Exactly one of *TestIamPermissionsResponse or error will be non-nil.
+// Any non-2xx status code is an error. Response headers are in either
+// *TestIamPermissionsResponse.ServerResponse.Header or (if a response
+// was returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsEkmConnectionsTestIamPermissionsCall) Do(opts ...googleapi.CallOption) (*TestIamPermissionsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &TestIamPermissionsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Returns permissions that a caller has on the specified resource. If the resource does not exist, this will return an empty set of permissions, not a `NOT_FOUND` error. Note: This operation is designed to be used for building permission-aware UIs and command-line tools, not for authorization checking. This operation may \"fail open\" without warning.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/ekmConnections/{ekmConnectionsId}:testIamPermissions",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.ekmConnections.testIamPermissions",
+	//   "parameterOrder": [
+	//     "resource"
+	//   ],
+	//   "parameters": {
+	//     "resource": {
+	//       "description": "REQUIRED: The resource for which the policy detail is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/ekmConnections/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+resource}:testIamPermissions",
+	//   "request": {
+	//     "$ref": "TestIamPermissionsRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "TestIamPermissionsResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
 // method id "cloudkms.projects.locations.keyRings.create":
 
 type ProjectsLocationsKeyRingsCreateCall struct {
@@ -2613,6 +5715,9 @@ type ProjectsLocationsKeyRingsCreateCall struct {
 }
 
 // Create: Create a new KeyRing in a given Project and Location.
+//
+//   - parent: The resource name of the location associated with the
+//     KeyRings, in the format `projects/*/locations/*`.
 func (r *ProjectsLocationsKeyRingsService) Create(parent string, keyring *KeyRing) *ProjectsLocationsKeyRingsCreateCall {
 	c := &ProjectsLocationsKeyRingsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -2621,8 +5726,8 @@ func (r *ProjectsLocationsKeyRingsService) Create(parent string, keyring *KeyRin
 }
 
 // KeyRingId sets the optional parameter "keyRingId": Required. It must
-// be unique within a location and match the regular
-// expression `[a-zA-Z0-9_-]{1,63}`
+// be unique within a location and match the regular expression
+// `[a-zA-Z0-9_-]{1,63}`
 func (c *ProjectsLocationsKeyRingsCreateCall) KeyRingId(keyRingId string) *ProjectsLocationsKeyRingsCreateCall {
 	c.urlParams_.Set("keyRingId", keyRingId)
 	return c
@@ -2655,7 +5760,7 @@ func (c *ProjectsLocationsKeyRingsCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2695,17 +5800,17 @@ func (c *ProjectsLocationsKeyRingsCreateCall) Do(opts ...googleapi.CallOption) (
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &KeyRing{
 		ServerResponse: googleapi.ServerResponse{
@@ -2728,12 +5833,12 @@ func (c *ProjectsLocationsKeyRingsCreateCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "keyRingId": {
-	//       "description": "Required. It must be unique within a location and match the regular\nexpression `[a-zA-Z0-9_-]{1,63}`",
+	//       "description": "Required. It must be unique within a location and match the regular expression `[a-zA-Z0-9_-]{1,63}`",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The resource name of the location associated with the\nKeyRings, in the format `projects/*/locations/*`.",
+	//       "description": "Required. The resource name of the location associated with the KeyRings, in the format `projects/*/locations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
@@ -2767,6 +5872,8 @@ type ProjectsLocationsKeyRingsGetCall struct {
 }
 
 // Get: Returns metadata for a given KeyRing.
+//
+// - name: The name of the KeyRing to get.
 func (r *ProjectsLocationsKeyRingsService) Get(name string) *ProjectsLocationsKeyRingsGetCall {
 	c := &ProjectsLocationsKeyRingsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -2810,7 +5917,7 @@ func (c *ProjectsLocationsKeyRingsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2848,17 +5955,17 @@ func (c *ProjectsLocationsKeyRingsGetCall) Do(opts ...googleapi.CallOption) (*Ke
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &KeyRing{
 		ServerResponse: googleapi.ServerResponse{
@@ -2911,10 +6018,14 @@ type ProjectsLocationsKeyRingsGetIamPolicyCall struct {
 	header_      http.Header
 }
 
-// GetIamPolicy: Gets the access control policy for a resource.
-// Returns an empty policy if the resource exists and does not have a
-// policy
+// GetIamPolicy: Gets the access control policy for a resource. Returns
+// an empty policy if the resource exists and does not have a policy
 // set.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsService) GetIamPolicy(resource string) *ProjectsLocationsKeyRingsGetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsGetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -2922,18 +6033,18 @@ func (r *ProjectsLocationsKeyRingsService) GetIamPolicy(resource string) *Projec
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned.
-//
-// Valid values are 0, 1, and 3. Requests specifying an invalid value
-// will be
-// rejected.
-//
-// Requests for policies with any conditional bindings must specify
-// version 3.
-// Policies without any conditional bindings may specify any valid value
-// or
-// leave the field unset.
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsKeyRingsGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
 	return c
@@ -2976,7 +6087,7 @@ func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3014,17 +6125,17 @@ func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) Do(opts ...googleapi.CallOpt
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -3038,7 +6149,7 @@ func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) Do(opts ...googleapi.CallOpt
 	}
 	return ret, nil
 	// {
-	//   "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
+	//   "description": "Gets the access control policy for a resource. Returns an empty policy if the resource exists and does not have a policy set.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}:getIamPolicy",
 	//   "httpMethod": "GET",
 	//   "id": "cloudkms.projects.locations.keyRings.getIamPolicy",
@@ -3047,13 +6158,13 @@ func (c *ProjectsLocationsKeyRingsGetIamPolicyCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned.\n\nValid values are 0, 1, and 3. Requests specifying an invalid value will be\nrejected.\n\nRequests for policies with any conditional bindings must specify version 3.\nPolicies without any conditional bindings may specify any valid value or\nleave the field unset.",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -3084,6 +6195,9 @@ type ProjectsLocationsKeyRingsListCall struct {
 }
 
 // List: Lists KeyRings.
+//
+//   - parent: The resource name of the location associated with the
+//     KeyRings, in the format `projects/*/locations/*`.
 func (r *ProjectsLocationsKeyRingsService) List(parent string) *ProjectsLocationsKeyRingsListCall {
 	c := &ProjectsLocationsKeyRingsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -3091,45 +6205,36 @@ func (r *ProjectsLocationsKeyRingsService) List(parent string) *ProjectsLocation
 }
 
 // Filter sets the optional parameter "filter": Only include resources
-// that match the filter in the response. For
-// more information, see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// that match the filter in the response. For more information, see
+// Sorting and filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsListCall) Filter(filter string) *ProjectsLocationsKeyRingsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
 // OrderBy sets the optional parameter "orderBy": Specify how the
-// results should be sorted. If not specified, the
-// results will be sorted in the default order.  For more information,
-// see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// results should be sorted. If not specified, the results will be
+// sorted in the default order. For more information, see Sorting and
+// filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsListCall) OrderBy(orderBy string) *ProjectsLocationsKeyRingsListCall {
 	c.urlParams_.Set("orderBy", orderBy)
 	return c
 }
 
 // PageSize sets the optional parameter "pageSize": Optional limit on
-// the number of KeyRings to include in the
-// response.  Further KeyRings can subsequently be obtained by
-// including the ListKeyRingsResponse.next_page_token in a
-// subsequent
-// request.  If unspecified, the server will pick an appropriate
-// default.
+// the number of KeyRings to include in the response. Further KeyRings
+// can subsequently be obtained by including the
+// ListKeyRingsResponse.next_page_token in a subsequent request. If
+// unspecified, the server will pick an appropriate default.
 func (c *ProjectsLocationsKeyRingsListCall) PageSize(pageSize int64) *ProjectsLocationsKeyRingsListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Optional
-// pagination token, returned earlier
-// via
+// pagination token, returned earlier via
 // ListKeyRingsResponse.next_page_token.
 func (c *ProjectsLocationsKeyRingsListCall) PageToken(pageToken string) *ProjectsLocationsKeyRingsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
@@ -3173,7 +6278,7 @@ func (c *ProjectsLocationsKeyRingsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3211,17 +6316,17 @@ func (c *ProjectsLocationsKeyRingsListCall) Do(opts ...googleapi.CallOption) (*L
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ListKeyRingsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -3244,28 +6349,28 @@ func (c *ProjectsLocationsKeyRingsListCall) Do(opts ...googleapi.CallOption) (*L
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Optional. Only include resources that match the filter in the response. For\nmore information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Only include resources that match the filter in the response. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "orderBy": {
-	//       "description": "Optional. Specify how the results should be sorted. If not specified, the\nresults will be sorted in the default order.  For more information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Specify how the results should be sorted. If not specified, the results will be sorted in the default order. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "Optional. Optional limit on the number of KeyRings to include in the\nresponse.  Further KeyRings can subsequently be obtained by\nincluding the ListKeyRingsResponse.next_page_token in a subsequent\nrequest.  If unspecified, the server will pick an appropriate default.",
+	//       "description": "Optional. Optional limit on the number of KeyRings to include in the response. Further KeyRings can subsequently be obtained by including the ListKeyRingsResponse.next_page_token in a subsequent request. If unspecified, the server will pick an appropriate default.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. Optional pagination token, returned earlier via\nListKeyRingsResponse.next_page_token.",
+	//       "description": "Optional. Optional pagination token, returned earlier via ListKeyRingsResponse.next_page_token.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The resource name of the location associated with the\nKeyRings, in the format `projects/*/locations/*`.",
+	//       "description": "Required. The resource name of the location associated with the KeyRings, in the format `projects/*/locations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
@@ -3317,11 +6422,13 @@ type ProjectsLocationsKeyRingsSetIamPolicyCall struct {
 }
 
 // SetIamPolicy: Sets the access control policy on the specified
-// resource. Replaces any
-// existing policy.
+// resource. Replaces any existing policy. Can return `NOT_FOUND`,
+// `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.
 //
-// Can return Public Errors: NOT_FOUND, INVALID_ARGUMENT and
-// PERMISSION_DENIED
+//   - resource: REQUIRED: The resource for which the policy is being
+//     specified. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsService) SetIamPolicy(resource string, setiampolicyrequest *SetIamPolicyRequest) *ProjectsLocationsKeyRingsSetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsSetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -3356,7 +6463,7 @@ func (c *ProjectsLocationsKeyRingsSetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3396,17 +6503,17 @@ func (c *ProjectsLocationsKeyRingsSetIamPolicyCall) Do(opts ...googleapi.CallOpt
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -3420,7 +6527,7 @@ func (c *ProjectsLocationsKeyRingsSetIamPolicyCall) Do(opts ...googleapi.CallOpt
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.\n\nCan return Public Errors: NOT_FOUND, INVALID_ARGUMENT and PERMISSION_DENIED",
+	//   "description": "Sets the access control policy on the specified resource. Replaces any existing policy. Can return `NOT_FOUND`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}:setIamPolicy",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.setIamPolicy",
@@ -3429,7 +6536,7 @@ func (c *ProjectsLocationsKeyRingsSetIamPolicyCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being specified. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -3463,16 +6570,16 @@ type ProjectsLocationsKeyRingsTestIamPermissionsCall struct {
 }
 
 // TestIamPermissions: Returns permissions that a caller has on the
-// specified resource.
-// If the resource does not exist, this will return an empty set
-// of
-// permissions, not a NOT_FOUND error.
+// specified resource. If the resource does not exist, this will return
+// an empty set of permissions, not a `NOT_FOUND` error. Note: This
+// operation is designed to be used for building permission-aware UIs
+// and command-line tools, not for authorization checking. This
+// operation may "fail open" without warning.
 //
-// Note: This operation is designed to be used for building
-// permission-aware
-// UIs and command-line tools, not for authorization checking. This
-// operation
-// may "fail open" without warning.
+//   - resource: REQUIRED: The resource for which the policy detail is
+//     being requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ProjectsLocationsKeyRingsTestIamPermissionsCall {
 	c := &ProjectsLocationsKeyRingsTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -3507,7 +6614,7 @@ func (c *ProjectsLocationsKeyRingsTestIamPermissionsCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3547,17 +6654,17 @@ func (c *ProjectsLocationsKeyRingsTestIamPermissionsCall) Do(opts ...googleapi.C
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &TestIamPermissionsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -3571,7 +6678,7 @@ func (c *ProjectsLocationsKeyRingsTestIamPermissionsCall) Do(opts ...googleapi.C
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
+	//   "description": "Returns permissions that a caller has on the specified resource. If the resource does not exist, this will return an empty set of permissions, not a `NOT_FOUND` error. Note: This operation is designed to be used for building permission-aware UIs and command-line tools, not for authorization checking. This operation may \"fail open\" without warning.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}:testIamPermissions",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.testIamPermissions",
@@ -3580,7 +6687,7 @@ func (c *ProjectsLocationsKeyRingsTestIamPermissionsCall) Do(opts ...googleapi.C
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy detail is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -3613,11 +6720,10 @@ type ProjectsLocationsKeyRingsCryptoKeysCreateCall struct {
 	header_    http.Header
 }
 
-// Create: Create a new CryptoKey within a KeyRing.
+// Create: Create a new CryptoKey within a KeyRing. CryptoKey.purpose
+// and CryptoKey.version_template.algorithm are required.
 //
-// CryptoKey.purpose and
-// CryptoKey.version_template.algorithm
-// are required.
+// - parent: The name of the KeyRing associated with the CryptoKeys.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) Create(parent string, cryptokey *CryptoKey) *ProjectsLocationsKeyRingsCryptoKeysCreateCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -3626,8 +6732,8 @@ func (r *ProjectsLocationsKeyRingsCryptoKeysService) Create(parent string, crypt
 }
 
 // CryptoKeyId sets the optional parameter "cryptoKeyId": Required. It
-// must be unique within a KeyRing and match the regular
-// expression `[a-zA-Z0-9_-]{1,63}`
+// must be unique within a KeyRing and match the regular expression
+// `[a-zA-Z0-9_-]{1,63}`
 func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) CryptoKeyId(cryptoKeyId string) *ProjectsLocationsKeyRingsCryptoKeysCreateCall {
 	c.urlParams_.Set("cryptoKeyId", cryptoKeyId)
 	return c
@@ -3635,11 +6741,9 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) CryptoKeyId(cryptoKeyId 
 
 // SkipInitialVersionCreation sets the optional parameter
 // "skipInitialVersionCreation": If set to true, the request will create
-// a CryptoKey without any
-// CryptoKeyVersions. You must manually call
-// CreateCryptoKeyVersion or
-// ImportCryptoKeyVersion
-// before you can use this CryptoKey.
+// a CryptoKey without any CryptoKeyVersions. You must manually call
+// CreateCryptoKeyVersion or ImportCryptoKeyVersion before you can use
+// this CryptoKey.
 func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) SkipInitialVersionCreation(skipInitialVersionCreation bool) *ProjectsLocationsKeyRingsCryptoKeysCreateCall {
 	c.urlParams_.Set("skipInitialVersionCreation", fmt.Sprint(skipInitialVersionCreation))
 	return c
@@ -3672,7 +6776,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3712,17 +6816,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) Do(opts ...googleapi.Cal
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKey{
 		ServerResponse: googleapi.ServerResponse{
@@ -3736,7 +6840,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) Do(opts ...googleapi.Cal
 	}
 	return ret, nil
 	// {
-	//   "description": "Create a new CryptoKey within a KeyRing.\n\nCryptoKey.purpose and\nCryptoKey.version_template.algorithm\nare required.",
+	//   "description": "Create a new CryptoKey within a KeyRing. CryptoKey.purpose and CryptoKey.version_template.algorithm are required.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.create",
@@ -3745,19 +6849,19 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCreateCall) Do(opts ...googleapi.Cal
 	//   ],
 	//   "parameters": {
 	//     "cryptoKeyId": {
-	//       "description": "Required. It must be unique within a KeyRing and match the regular\nexpression `[a-zA-Z0-9_-]{1,63}`",
+	//       "description": "Required. It must be unique within a KeyRing and match the regular expression `[a-zA-Z0-9_-]{1,63}`",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The name of the KeyRing associated with the\nCryptoKeys.",
+	//       "description": "Required. The name of the KeyRing associated with the CryptoKeys.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "skipInitialVersionCreation": {
-	//       "description": "If set to true, the request will create a CryptoKey without any\nCryptoKeyVersions. You must manually call\nCreateCryptoKeyVersion or\nImportCryptoKeyVersion\nbefore you can use this CryptoKey.",
+	//       "description": "If set to true, the request will create a CryptoKey without any CryptoKeyVersions. You must manually call CreateCryptoKeyVersion or ImportCryptoKeyVersion before you can use this CryptoKey.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -3789,8 +6893,10 @@ type ProjectsLocationsKeyRingsCryptoKeysDecryptCall struct {
 }
 
 // Decrypt: Decrypts data that was protected by Encrypt. The
-// CryptoKey.purpose
-// must be ENCRYPT_DECRYPT.
+// CryptoKey.purpose must be ENCRYPT_DECRYPT.
+//
+//   - name: The resource name of the CryptoKey to use for decryption. The
+//     server will choose the appropriate version.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) Decrypt(name string, decryptrequest *DecryptRequest) *ProjectsLocationsKeyRingsCryptoKeysDecryptCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysDecryptCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -3825,7 +6931,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysDecryptCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysDecryptCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3865,17 +6971,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysDecryptCall) Do(opts ...googleapi.Ca
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &DecryptResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -3889,7 +6995,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysDecryptCall) Do(opts ...googleapi.Ca
 	}
 	return ret, nil
 	// {
-	//   "description": "Decrypts data that was protected by Encrypt. The CryptoKey.purpose\nmust be ENCRYPT_DECRYPT.",
+	//   "description": "Decrypts data that was protected by Encrypt. The CryptoKey.purpose must be ENCRYPT_DECRYPT.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:decrypt",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.decrypt",
@@ -3898,7 +7004,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysDecryptCall) Do(opts ...googleapi.Ca
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Required. The resource name of the CryptoKey to use for decryption.\nThe server will choose the appropriate version.",
+	//       "description": "Required. The resource name of the CryptoKey to use for decryption. The server will choose the appropriate version.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -3932,9 +7038,11 @@ type ProjectsLocationsKeyRingsCryptoKeysEncryptCall struct {
 }
 
 // Encrypt: Encrypts data, so that it can only be recovered by a call to
-// Decrypt.
-// The CryptoKey.purpose must be
-// ENCRYPT_DECRYPT.
+// Decrypt. The CryptoKey.purpose must be ENCRYPT_DECRYPT.
+//
+//   - name: The resource name of the CryptoKey or CryptoKeyVersion to use
+//     for encryption. If a CryptoKey is specified, the server will use
+//     its primary version.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) Encrypt(name string, encryptrequest *EncryptRequest) *ProjectsLocationsKeyRingsCryptoKeysEncryptCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysEncryptCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -3969,7 +7077,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysEncryptCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysEncryptCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4009,17 +7117,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysEncryptCall) Do(opts ...googleapi.Ca
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &EncryptResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -4033,7 +7141,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysEncryptCall) Do(opts ...googleapi.Ca
 	}
 	return ret, nil
 	// {
-	//   "description": "Encrypts data, so that it can only be recovered by a call to Decrypt.\nThe CryptoKey.purpose must be\nENCRYPT_DECRYPT.",
+	//   "description": "Encrypts data, so that it can only be recovered by a call to Decrypt. The CryptoKey.purpose must be ENCRYPT_DECRYPT.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:encrypt",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.encrypt",
@@ -4042,9 +7150,9 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysEncryptCall) Do(opts ...googleapi.Ca
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Required. The resource name of the CryptoKey or CryptoKeyVersion\nto use for encryption.\n\nIf a CryptoKey is specified, the server will use its\nprimary version.",
+	//       "description": "Required. The resource name of the CryptoKey or CryptoKeyVersion to use for encryption. If a CryptoKey is specified, the server will use its primary version.",
 	//       "location": "path",
-	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/.+$",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/.*$",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -4075,8 +7183,10 @@ type ProjectsLocationsKeyRingsCryptoKeysGetCall struct {
 	header_      http.Header
 }
 
-// Get: Returns metadata for a given CryptoKey, as well as its
-// primary CryptoKeyVersion.
+// Get: Returns metadata for a given CryptoKey, as well as its primary
+// CryptoKeyVersion.
+//
+// - name: The name of the CryptoKey to get.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) Get(name string) *ProjectsLocationsKeyRingsCryptoKeysGetCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -4120,7 +7230,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4158,17 +7268,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetCall) Do(opts ...googleapi.CallOp
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKey{
 		ServerResponse: googleapi.ServerResponse{
@@ -4182,7 +7292,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetCall) Do(opts ...googleapi.CallOp
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns metadata for a given CryptoKey, as well as its\nprimary CryptoKeyVersion.",
+	//   "description": "Returns metadata for a given CryptoKey, as well as its primary CryptoKeyVersion.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}",
 	//   "httpMethod": "GET",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.get",
@@ -4221,10 +7331,14 @@ type ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall struct {
 	header_      http.Header
 }
 
-// GetIamPolicy: Gets the access control policy for a resource.
-// Returns an empty policy if the resource exists and does not have a
-// policy
+// GetIamPolicy: Gets the access control policy for a resource. Returns
+// an empty policy if the resource exists and does not have a policy
 // set.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) GetIamPolicy(resource string) *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -4232,18 +7346,18 @@ func (r *ProjectsLocationsKeyRingsCryptoKeysService) GetIamPolicy(resource strin
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned.
-//
-// Valid values are 0, 1, and 3. Requests specifying an invalid value
-// will be
-// rejected.
-//
-// Requests for policies with any conditional bindings must specify
-// version 3.
-// Policies without any conditional bindings may specify any valid value
-// or
-// leave the field unset.
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
 	return c
@@ -4286,7 +7400,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4324,17 +7438,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) Do(opts ...googlea
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -4348,7 +7462,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) Do(opts ...googlea
 	}
 	return ret, nil
 	// {
-	//   "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
+	//   "description": "Gets the access control policy for a resource. Returns an empty policy if the resource exists and does not have a policy set.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:getIamPolicy",
 	//   "httpMethod": "GET",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.getIamPolicy",
@@ -4357,13 +7471,13 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysGetIamPolicyCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned.\n\nValid values are 0, 1, and 3. Requests specifying an invalid value will be\nrejected.\n\nRequests for policies with any conditional bindings must specify version 3.\nPolicies without any conditional bindings may specify any valid value or\nleave the field unset.",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -4394,6 +7508,9 @@ type ProjectsLocationsKeyRingsCryptoKeysListCall struct {
 }
 
 // List: Lists CryptoKeys.
+//
+//   - parent: The resource name of the KeyRing to list, in the format
+//     `projects/*/locations/*/keyRings/*`.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) List(parent string) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -4401,46 +7518,36 @@ func (r *ProjectsLocationsKeyRingsCryptoKeysService) List(parent string) *Projec
 }
 
 // Filter sets the optional parameter "filter": Only include resources
-// that match the filter in the response. For
-// more information, see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// that match the filter in the response. For more information, see
+// Sorting and filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) Filter(filter string) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
 // OrderBy sets the optional parameter "orderBy": Specify how the
-// results should be sorted. If not specified, the
-// results will be sorted in the default order. For more information,
-// see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// results should be sorted. If not specified, the results will be
+// sorted in the default order. For more information, see Sorting and
+// filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) OrderBy(orderBy string) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c.urlParams_.Set("orderBy", orderBy)
 	return c
 }
 
 // PageSize sets the optional parameter "pageSize": Optional limit on
-// the number of CryptoKeys to include in the
-// response.  Further CryptoKeys can subsequently be obtained
-// by
-// including the ListCryptoKeysResponse.next_page_token in a
-// subsequent
-// request.  If unspecified, the server will pick an appropriate
-// default.
+// the number of CryptoKeys to include in the response. Further
+// CryptoKeys can subsequently be obtained by including the
+// ListCryptoKeysResponse.next_page_token in a subsequent request. If
+// unspecified, the server will pick an appropriate default.
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) PageSize(pageSize int64) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Optional
-// pagination token, returned earlier
-// via
+// pagination token, returned earlier via
 // ListCryptoKeysResponse.next_page_token.
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) PageToken(pageToken string) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c.urlParams_.Set("pageToken", pageToken)
@@ -4451,8 +7558,14 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) PageToken(pageToken string
 // the primary version to include in the response.
 //
 // Possible values:
-//   "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED"
-//   "FULL"
+//
+//	"CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED" - Default view for each
+//
+// CryptoKeyVersion. Does not include the attestation field.
+//
+//	"FULL" - Provides all fields in each CryptoKeyVersion, including
+//
+// the attestation.
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) VersionView(versionView string) *ProjectsLocationsKeyRingsCryptoKeysListCall {
 	c.urlParams_.Set("versionView", versionView)
 	return c
@@ -4495,7 +7608,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4533,17 +7646,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) Do(opts ...googleapi.CallO
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ListCryptoKeysResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -4566,28 +7679,28 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) Do(opts ...googleapi.CallO
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Optional. Only include resources that match the filter in the response. For\nmore information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Only include resources that match the filter in the response. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "orderBy": {
-	//       "description": "Optional. Specify how the results should be sorted. If not specified, the\nresults will be sorted in the default order. For more information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Specify how the results should be sorted. If not specified, the results will be sorted in the default order. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "Optional. Optional limit on the number of CryptoKeys to include in the\nresponse.  Further CryptoKeys can subsequently be obtained by\nincluding the ListCryptoKeysResponse.next_page_token in a subsequent\nrequest.  If unspecified, the server will pick an appropriate default.",
+	//       "description": "Optional. Optional limit on the number of CryptoKeys to include in the response. Further CryptoKeys can subsequently be obtained by including the ListCryptoKeysResponse.next_page_token in a subsequent request. If unspecified, the server will pick an appropriate default.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. Optional pagination token, returned earlier via\nListCryptoKeysResponse.next_page_token.",
+	//       "description": "Optional. Optional pagination token, returned earlier via ListCryptoKeysResponse.next_page_token.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The resource name of the KeyRing to list, in the format\n`projects/*/locations/*/keyRings/*`.",
+	//       "description": "Required. The resource name of the KeyRing to list, in the format `projects/*/locations/*/keyRings/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -4598,6 +7711,10 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysListCall) Do(opts ...googleapi.CallO
 	//       "enum": [
 	//         "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED",
 	//         "FULL"
+	//       ],
+	//       "enumDescriptions": [
+	//         "Default view for each CryptoKeyVersion. Does not include the attestation field.",
+	//         "Provides all fields in each CryptoKeyVersion, including the attestation."
 	//       ],
 	//       "location": "query",
 	//       "type": "string"
@@ -4648,6 +7765,9 @@ type ProjectsLocationsKeyRingsCryptoKeysPatchCall struct {
 }
 
 // Patch: Update a CryptoKey.
+//
+//   - name: Output only. The resource name for this CryptoKey in the
+//     format `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) Patch(name string, cryptokey *CryptoKey) *ProjectsLocationsKeyRingsCryptoKeysPatchCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysPatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -4689,7 +7809,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4729,17 +7849,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysPatchCall) Do(opts ...googleapi.Call
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKey{
 		ServerResponse: googleapi.ServerResponse{
@@ -4762,7 +7882,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysPatchCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Output only. The resource name for this CryptoKey in the format\n`projects/*/locations/*/keyRings/*/cryptoKeys/*`.",
+	//       "description": "Output only. The resource name for this CryptoKey in the format `projects/*/locations/*/keyRings/*/cryptoKeys/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -4802,11 +7922,13 @@ type ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall struct {
 }
 
 // SetIamPolicy: Sets the access control policy on the specified
-// resource. Replaces any
-// existing policy.
+// resource. Replaces any existing policy. Can return `NOT_FOUND`,
+// `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.
 //
-// Can return Public Errors: NOT_FOUND, INVALID_ARGUMENT and
-// PERMISSION_DENIED
+//   - resource: REQUIRED: The resource for which the policy is being
+//     specified. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) SetIamPolicy(resource string, setiampolicyrequest *SetIamPolicyRequest) *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -4841,7 +7963,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4881,17 +8003,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall) Do(opts ...googlea
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -4905,7 +8027,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall) Do(opts ...googlea
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.\n\nCan return Public Errors: NOT_FOUND, INVALID_ARGUMENT and PERMISSION_DENIED",
+	//   "description": "Sets the access control policy on the specified resource. Replaces any existing policy. Can return `NOT_FOUND`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:setIamPolicy",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.setIamPolicy",
@@ -4914,7 +8036,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysSetIamPolicyCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being specified. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -4948,16 +8070,16 @@ type ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall struct {
 }
 
 // TestIamPermissions: Returns permissions that a caller has on the
-// specified resource.
-// If the resource does not exist, this will return an empty set
-// of
-// permissions, not a NOT_FOUND error.
+// specified resource. If the resource does not exist, this will return
+// an empty set of permissions, not a `NOT_FOUND` error. Note: This
+// operation is designed to be used for building permission-aware UIs
+// and command-line tools, not for authorization checking. This
+// operation may "fail open" without warning.
 //
-// Note: This operation is designed to be used for building
-// permission-aware
-// UIs and command-line tools, not for authorization checking. This
-// operation
-// may "fail open" without warning.
+//   - resource: REQUIRED: The resource for which the policy detail is
+//     being requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -4992,7 +8114,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall) Header() htt
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5032,17 +8154,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall) Do(opts ...g
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &TestIamPermissionsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -5056,7 +8178,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall) Do(opts ...g
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
+	//   "description": "Returns permissions that a caller has on the specified resource. If the resource does not exist, this will return an empty set of permissions, not a `NOT_FOUND` error. Note: This operation is designed to be used for building permission-aware UIs and command-line tools, not for authorization checking. This operation may \"fail open\" without warning.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:testIamPermissions",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.testIamPermissions",
@@ -5065,7 +8187,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsCall) Do(opts ...g
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy detail is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -5099,9 +8221,10 @@ type ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall struct {
 }
 
 // UpdatePrimaryVersion: Update the version of a CryptoKey that will be
-// used in Encrypt.
+// used in Encrypt. Returns an error if called on a key whose purpose is
+// not ENCRYPT_DECRYPT.
 //
-// Returns an error if called on an asymmetric key.
+// - name: The resource name of the CryptoKey to update.
 func (r *ProjectsLocationsKeyRingsCryptoKeysService) UpdatePrimaryVersion(name string, updatecryptokeyprimaryversionrequest *UpdateCryptoKeyPrimaryVersionRequest) *ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -5136,7 +8259,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall) Header() h
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5176,17 +8299,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall) Do(opts ..
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKey{
 		ServerResponse: googleapi.ServerResponse{
@@ -5200,7 +8323,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionCall) Do(opts ..
 	}
 	return ret, nil
 	// {
-	//   "description": "Update the version of a CryptoKey that will be used in Encrypt.\n\nReturns an error if called on an asymmetric key.",
+	//   "description": "Update the version of a CryptoKey that will be used in Encrypt. Returns an error if called on a key whose purpose is not ENCRYPT_DECRYPT.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}:updatePrimaryVersion",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.updatePrimaryVersion",
@@ -5243,10 +8366,11 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCall s
 }
 
 // AsymmetricDecrypt: Decrypts data that was encrypted with a public key
-// retrieved from
-// GetPublicKey corresponding to a CryptoKeyVersion
-// with
+// retrieved from GetPublicKey corresponding to a CryptoKeyVersion with
 // CryptoKey.purpose ASYMMETRIC_DECRYPT.
+//
+//   - name: The resource name of the CryptoKeyVersion to use for
+//     decryption.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) AsymmetricDecrypt(name string, asymmetricdecryptrequest *AsymmetricDecryptRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -5281,7 +8405,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCa
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5321,17 +8445,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCa
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &AsymmetricDecryptResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -5345,7 +8469,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCa
 	}
 	return ret, nil
 	// {
-	//   "description": "Decrypts data that was encrypted with a public key retrieved from\nGetPublicKey corresponding to a CryptoKeyVersion with\nCryptoKey.purpose ASYMMETRIC_DECRYPT.",
+	//   "description": "Decrypts data that was encrypted with a public key retrieved from GetPublicKey corresponding to a CryptoKeyVersion with CryptoKey.purpose ASYMMETRIC_DECRYPT.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:asymmetricDecrypt",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.asymmetricDecrypt",
@@ -5354,7 +8478,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricDecryptCa
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Required. The resource name of the CryptoKeyVersion to use for\ndecryption.",
+	//       "description": "Required. The resource name of the CryptoKeyVersion to use for decryption.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+/cryptoKeyVersions/[^/]+$",
 	//       "required": true,
@@ -5388,10 +8512,10 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall stru
 }
 
 // AsymmetricSign: Signs data using a CryptoKeyVersion with
-// CryptoKey.purpose
-// ASYMMETRIC_SIGN, producing a signature that can be verified with the
-// public
-// key retrieved from GetPublicKey.
+// CryptoKey.purpose ASYMMETRIC_SIGN, producing a signature that can be
+// verified with the public key retrieved from GetPublicKey.
+//
+// - name: The resource name of the CryptoKeyVersion to use for signing.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) AsymmetricSign(name string, asymmetricsignrequest *AsymmetricSignRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -5426,7 +8550,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall)
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5466,17 +8590,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall)
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &AsymmetricSignResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -5490,7 +8614,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsAsymmetricSignCall)
 	}
 	return ret, nil
 	// {
-	//   "description": "Signs data using a CryptoKeyVersion with CryptoKey.purpose\nASYMMETRIC_SIGN, producing a signature that can be verified with the public\nkey retrieved from GetPublicKey.",
+	//   "description": "Signs data using a CryptoKeyVersion with CryptoKey.purpose ASYMMETRIC_SIGN, producing a signature that can be verified with the public key retrieved from GetPublicKey.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:asymmetricSign",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.asymmetricSign",
@@ -5532,11 +8656,12 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall struct {
 	header_          http.Header
 }
 
-// Create: Create a new CryptoKeyVersion in a CryptoKey.
-//
-// The server will assign the next sequential id. If unset,
-// state will be set to
+// Create: Create a new CryptoKeyVersion in a CryptoKey. The server will
+// assign the next sequential id. If unset, state will be set to
 // ENABLED.
+//
+//   - parent: The name of the CryptoKey associated with the
+//     CryptoKeyVersions.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Create(parent string, cryptokeyversion *CryptoKeyVersion) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -5571,7 +8696,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall) Header(
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5611,17 +8736,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall) Do(opts
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -5635,7 +8760,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall) Do(opts
 	}
 	return ret, nil
 	// {
-	//   "description": "Create a new CryptoKeyVersion in a CryptoKey.\n\nThe server will assign the next sequential id. If unset,\nstate will be set to\nENABLED.",
+	//   "description": "Create a new CryptoKeyVersion in a CryptoKey. The server will assign the next sequential id. If unset, state will be set to ENABLED.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.create",
@@ -5644,7 +8769,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateCall) Do(opts
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "Required. The name of the CryptoKey associated with\nthe CryptoKeyVersions.",
+	//       "description": "Required. The name of the CryptoKey associated with the CryptoKeyVersions.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -5677,19 +8802,15 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall struct {
 	header_                        http.Header
 }
 
-// Destroy: Schedule a CryptoKeyVersion for destruction.
+// Destroy: Schedule a CryptoKeyVersion for destruction. Upon calling
+// this method, CryptoKeyVersion.state will be set to DESTROY_SCHEDULED,
+// and destroy_time will be set to the time destroy_scheduled_duration
+// in the future. At that time, the state will automatically change to
+// DESTROYED, and the key material will be irrevocably destroyed. Before
+// the destroy_time is reached, RestoreCryptoKeyVersion may be called to
+// reverse the process.
 //
-// Upon calling this method, CryptoKeyVersion.state will be set
-// to
-// DESTROY_SCHEDULED
-// and destroy_time will be set to a time 24
-// hours in the future, at which point the state
-// will be changed to
-// DESTROYED, and the key
-// material will be irrevocably destroyed.
-//
-// Before the destroy_time is reached,
-// RestoreCryptoKeyVersion may be called to reverse the process.
+// - name: The resource name of the CryptoKeyVersion to destroy.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Destroy(name string, destroycryptokeyversionrequest *DestroyCryptoKeyVersionRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -5724,7 +8845,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall) Header
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5764,17 +8885,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall) Do(opt
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -5788,7 +8909,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyCall) Do(opt
 	}
 	return ret, nil
 	// {
-	//   "description": "Schedule a CryptoKeyVersion for destruction.\n\nUpon calling this method, CryptoKeyVersion.state will be set to\nDESTROY_SCHEDULED\nand destroy_time will be set to a time 24\nhours in the future, at which point the state\nwill be changed to\nDESTROYED, and the key\nmaterial will be irrevocably destroyed.\n\nBefore the destroy_time is reached,\nRestoreCryptoKeyVersion may be called to reverse the process.",
+	//   "description": "Schedule a CryptoKeyVersion for destruction. Upon calling this method, CryptoKeyVersion.state will be set to DESTROY_SCHEDULED, and destroy_time will be set to the time destroy_scheduled_duration in the future. At that time, the state will automatically change to DESTROYED, and the key material will be irrevocably destroyed. Before the destroy_time is reached, RestoreCryptoKeyVersion may be called to reverse the process.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:destroy",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.destroy",
@@ -5831,6 +8952,8 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall struct {
 }
 
 // Get: Returns metadata for a given CryptoKeyVersion.
+//
+// - name: The name of the CryptoKeyVersion to get.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Get(name string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -5874,7 +8997,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall) Header() h
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5912,17 +9035,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetCall) Do(opts ..
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -5976,10 +9099,9 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall struct
 }
 
 // GetPublicKey: Returns the public key for the given CryptoKeyVersion.
-// The
-// CryptoKey.purpose must be
-// ASYMMETRIC_SIGN or
-// ASYMMETRIC_DECRYPT.
+// The CryptoKey.purpose must be ASYMMETRIC_SIGN or ASYMMETRIC_DECRYPT.
+//
+// - name: The name of the CryptoKeyVersion public key to get.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) GetPublicKey(name string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -6023,7 +9145,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall) H
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6061,17 +9183,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall) D
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &PublicKey{
 		ServerResponse: googleapi.ServerResponse{
@@ -6085,7 +9207,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall) D
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns the public key for the given CryptoKeyVersion. The\nCryptoKey.purpose must be\nASYMMETRIC_SIGN or\nASYMMETRIC_DECRYPT.",
+	//   "description": "Returns the public key for the given CryptoKeyVersion. The CryptoKey.purpose must be ASYMMETRIC_SIGN or ASYMMETRIC_DECRYPT.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}/publicKey",
 	//   "httpMethod": "GET",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.getPublicKey",
@@ -6094,7 +9216,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetPublicKeyCall) D
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Required. The name of the CryptoKeyVersion public key to\nget.",
+	//       "description": "Required. The name of the CryptoKeyVersion public key to get.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+/cryptoKeyVersions/[^/]+$",
 	//       "required": true,
@@ -6124,13 +9246,16 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall struct {
 	header_                       http.Header
 }
 
-// Import: Imports a new CryptoKeyVersion into an existing CryptoKey
-// using the
-// wrapped key material provided in the request.
-//
-// The version ID will be assigned the next sequential id within
-// the
+// Import: Import wrapped key material into a CryptoKeyVersion. All
+// requests must specify a CryptoKey. If a CryptoKeyVersion is
+// additionally specified in the request, key material will be
+// reimported into that version. Otherwise, a new version will be
+// created, and will be assigned the next sequential id within the
 // CryptoKey.
+//
+//   - parent: The name of the CryptoKey to be imported into. The create
+//     permission is only required on this key when creating a new
+//     CryptoKeyVersion.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Import(parent string, importcryptokeyversionrequest *ImportCryptoKeyVersionRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -6165,7 +9290,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall) Header(
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6205,17 +9330,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall) Do(opts
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -6229,7 +9354,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall) Do(opts
 	}
 	return ret, nil
 	// {
-	//   "description": "Imports a new CryptoKeyVersion into an existing CryptoKey using the\nwrapped key material provided in the request.\n\nThe version ID will be assigned the next sequential id within the\nCryptoKey.",
+	//   "description": "Import wrapped key material into a CryptoKeyVersion. All requests must specify a CryptoKey. If a CryptoKeyVersion is additionally specified in the request, key material will be reimported into that version. Otherwise, a new version will be created, and will be assigned the next sequential id within the CryptoKey.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions:import",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.import",
@@ -6238,7 +9363,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsImportCall) Do(opts
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "Required. The name of the CryptoKey to\nbe imported into.",
+	//       "description": "Required. The name of the CryptoKey to be imported into. The create permission is only required on this key when creating a new CryptoKeyVersion.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -6272,6 +9397,9 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall struct {
 }
 
 // List: Lists CryptoKeyVersions.
+//
+//   - parent: The resource name of the CryptoKey to list, in the format
+//     `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) List(parent string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -6279,46 +9407,36 @@ func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) List(paren
 }
 
 // Filter sets the optional parameter "filter": Only include resources
-// that match the filter in the response. For
-// more information, see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// that match the filter in the response. For more information, see
+// Sorting and filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Filter(filter string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
 // OrderBy sets the optional parameter "orderBy": Specify how the
-// results should be sorted. If not specified, the
-// results will be sorted in the default order. For more information,
-// see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// results should be sorted. If not specified, the results will be
+// sorted in the default order. For more information, see Sorting and
+// filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) OrderBy(orderBy string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c.urlParams_.Set("orderBy", orderBy)
 	return c
 }
 
 // PageSize sets the optional parameter "pageSize": Optional limit on
-// the number of CryptoKeyVersions to
-// include in the response. Further CryptoKeyVersions can
-// subsequently be obtained by including
-// the
+// the number of CryptoKeyVersions to include in the response. Further
+// CryptoKeyVersions can subsequently be obtained by including the
 // ListCryptoKeyVersionsResponse.next_page_token in a subsequent
-// request.
-// If unspecified, the server will pick an appropriate default.
+// request. If unspecified, the server will pick an appropriate default.
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) PageSize(pageSize int64) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Optional
-// pagination token, returned earlier
-// via
+// pagination token, returned earlier via
 // ListCryptoKeyVersionsResponse.next_page_token.
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) PageToken(pageToken string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
@@ -6329,8 +9447,14 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) PageToken
 // response.
 //
 // Possible values:
-//   "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED"
-//   "FULL"
+//
+//	"CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED" - Default view for each
+//
+// CryptoKeyVersion. Does not include the attestation field.
+//
+//	"FULL" - Provides all fields in each CryptoKeyVersion, including
+//
+// the attestation.
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) View(view string) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall {
 	c.urlParams_.Set("view", view)
 	return c
@@ -6373,7 +9497,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Header() 
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6411,17 +9535,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Do(opts .
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ListCryptoKeyVersionsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -6444,28 +9568,28 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Do(opts .
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Optional. Only include resources that match the filter in the response. For\nmore information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Only include resources that match the filter in the response. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "orderBy": {
-	//       "description": "Optional. Specify how the results should be sorted. If not specified, the\nresults will be sorted in the default order. For more information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Specify how the results should be sorted. If not specified, the results will be sorted in the default order. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "Optional. Optional limit on the number of CryptoKeyVersions to\ninclude in the response. Further CryptoKeyVersions can\nsubsequently be obtained by including the\nListCryptoKeyVersionsResponse.next_page_token in a subsequent request.\nIf unspecified, the server will pick an appropriate default.",
+	//       "description": "Optional. Optional limit on the number of CryptoKeyVersions to include in the response. Further CryptoKeyVersions can subsequently be obtained by including the ListCryptoKeyVersionsResponse.next_page_token in a subsequent request. If unspecified, the server will pick an appropriate default.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. Optional pagination token, returned earlier via\nListCryptoKeyVersionsResponse.next_page_token.",
+	//       "description": "Optional. Optional pagination token, returned earlier via ListCryptoKeyVersionsResponse.next_page_token.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The resource name of the CryptoKey to list, in the format\n`projects/*/locations/*/keyRings/*/cryptoKeys/*`.",
+	//       "description": "Required. The resource name of the CryptoKey to list, in the format `projects/*/locations/*/keyRings/*/cryptoKeys/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$",
 	//       "required": true,
@@ -6476,6 +9600,10 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Do(opts .
 	//       "enum": [
 	//         "CRYPTO_KEY_VERSION_VIEW_UNSPECIFIED",
 	//         "FULL"
+	//       ],
+	//       "enumDescriptions": [
+	//         "Default view for each CryptoKeyVersion. Does not include the attestation field.",
+	//         "Provides all fields in each CryptoKeyVersion, including the attestation."
 	//       ],
 	//       "location": "query",
 	//       "type": "string"
@@ -6514,6 +9642,297 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListCall) Pages(ctx
 	}
 }
 
+// method id "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macSign":
+
+type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall struct {
+	s              *Service
+	name           string
+	macsignrequest *MacSignRequest
+	urlParams_     gensupport.URLParams
+	ctx_           context.Context
+	header_        http.Header
+}
+
+// MacSign: Signs data using a CryptoKeyVersion with CryptoKey.purpose
+// MAC, producing a tag that can be verified by another source with the
+// same key.
+//
+// - name: The resource name of the CryptoKeyVersion to use for signing.
+func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) MacSign(name string, macsignrequest *MacSignRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall {
+	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.macsignrequest = macsignrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall) Fields(s ...googleapi.Field) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall) Context(ctx context.Context) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.macsignrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:macSign")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macSign" call.
+// Exactly one of *MacSignResponse or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *MacSignResponse.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacSignCall) Do(opts ...googleapi.CallOption) (*MacSignResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &MacSignResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Signs data using a CryptoKeyVersion with CryptoKey.purpose MAC, producing a tag that can be verified by another source with the same key.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:macSign",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macSign",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Required. The resource name of the CryptoKeyVersion to use for signing.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+/cryptoKeyVersions/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}:macSign",
+	//   "request": {
+	//     "$ref": "MacSignRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "MacSignResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
+// method id "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macVerify":
+
+type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall struct {
+	s                *Service
+	name             string
+	macverifyrequest *MacVerifyRequest
+	urlParams_       gensupport.URLParams
+	ctx_             context.Context
+	header_          http.Header
+}
+
+// MacVerify: Verifies MAC tag using a CryptoKeyVersion with
+// CryptoKey.purpose MAC, and returns a response that indicates whether
+// or not the verification was successful.
+//
+//   - name: The resource name of the CryptoKeyVersion to use for
+//     verification.
+func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) MacVerify(name string, macverifyrequest *MacVerifyRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall {
+	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.macverifyrequest = macverifyrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall) Fields(s ...googleapi.Field) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall) Context(ctx context.Context) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.macverifyrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:macVerify")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macVerify" call.
+// Exactly one of *MacVerifyResponse or error will be non-nil. Any
+// non-2xx status code is an error. Response headers are in either
+// *MacVerifyResponse.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsMacVerifyCall) Do(opts ...googleapi.CallOption) (*MacVerifyResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &MacVerifyResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Verifies MAC tag using a CryptoKeyVersion with CryptoKey.purpose MAC, and returns a response that indicates whether or not the verification was successful.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:macVerify",
+	//   "httpMethod": "POST",
+	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.macVerify",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "Required. The resource name of the CryptoKeyVersion to use for verification.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+/cryptoKeyVersions/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}:macVerify",
+	//   "request": {
+	//     "$ref": "MacVerifyRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "MacVerifyResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform",
+	//     "https://www.googleapis.com/auth/cloudkms"
+	//   ]
+	// }
+
+}
+
 // method id "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.patch":
 
 type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall struct {
@@ -6525,14 +9944,15 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall struct {
 	header_          http.Header
 }
 
-// Patch: Update a CryptoKeyVersion's metadata.
+// Patch: Update a CryptoKeyVersion's metadata. state may be changed
+// between ENABLED and DISABLED using this method. See
+// DestroyCryptoKeyVersion and RestoreCryptoKeyVersion to move between
+// other states.
 //
-// state may be changed between
-// ENABLED and
-// DISABLED using this
-// method. See DestroyCryptoKeyVersion and RestoreCryptoKeyVersion
-// to
-// move between other states.
+//   - name: Output only. The resource name for this CryptoKeyVersion in
+//     the format
+//     `projects/*/locations/*/keyRings/*/cryptoKeys/*/cryptoKeyVersions/*`
+//     .
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Patch(name string, cryptokeyversion *CryptoKeyVersion) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -6574,7 +9994,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall) Header()
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6614,17 +10034,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall) Do(opts 
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -6638,7 +10058,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall) Do(opts 
 	}
 	return ret, nil
 	// {
-	//   "description": "Update a CryptoKeyVersion's metadata.\n\nstate may be changed between\nENABLED and\nDISABLED using this\nmethod. See DestroyCryptoKeyVersion and RestoreCryptoKeyVersion to\nmove between other states.",
+	//   "description": "Update a CryptoKeyVersion's metadata. state may be changed between ENABLED and DISABLED using this method. See DestroyCryptoKeyVersion and RestoreCryptoKeyVersion to move between other states.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}",
 	//   "httpMethod": "PATCH",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.patch",
@@ -6647,7 +10067,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchCall) Do(opts 
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Output only. The resource name for this CryptoKeyVersion in the format\n`projects/*/locations/*/keyRings/*/cryptoKeys/*/cryptoKeyVersions/*`.",
+	//       "description": "Output only. The resource name for this CryptoKeyVersion in the format `projects/*/locations/*/keyRings/*/cryptoKeys/*/cryptoKeyVersions/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+/cryptoKeyVersions/[^/]+$",
 	//       "required": true,
@@ -6686,14 +10106,11 @@ type ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall struct {
 	header_                        http.Header
 }
 
-// Restore: Restore a CryptoKeyVersion in
-// the
-// DESTROY_SCHEDULED
-// state.
+// Restore: Restore a CryptoKeyVersion in the DESTROY_SCHEDULED state.
+// Upon restoration of the CryptoKeyVersion, state will be set to
+// DISABLED, and destroy_time will be cleared.
 //
-// Upon restoration of the CryptoKeyVersion, state
-// will be set to DISABLED,
-// and destroy_time will be cleared.
+// - name: The resource name of the CryptoKeyVersion to restore.
 func (r *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsService) Restore(name string, restorecryptokeyversionrequest *RestoreCryptoKeyVersionRequest) *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall {
 	c := &ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -6728,7 +10145,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall) Header
 
 func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6768,17 +10185,17 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall) Do(opt
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &CryptoKeyVersion{
 		ServerResponse: googleapi.ServerResponse{
@@ -6792,7 +10209,7 @@ func (c *ProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreCall) Do(opt
 	}
 	return ret, nil
 	// {
-	//   "description": "Restore a CryptoKeyVersion in the\nDESTROY_SCHEDULED\nstate.\n\nUpon restoration of the CryptoKeyVersion, state\nwill be set to DISABLED,\nand destroy_time will be cleared.",
+	//   "description": "Restore a CryptoKeyVersion in the DESTROY_SCHEDULED state. Upon restoration of the CryptoKeyVersion, state will be set to DISABLED, and destroy_time will be cleared.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/cryptoKeys/{cryptoKeysId}/cryptoKeyVersions/{cryptoKeyVersionsId}:restore",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.restore",
@@ -6834,10 +10251,10 @@ type ProjectsLocationsKeyRingsImportJobsCreateCall struct {
 	header_    http.Header
 }
 
-// Create: Create a new ImportJob within a
-// KeyRing.
-//
+// Create: Create a new ImportJob within a KeyRing.
 // ImportJob.import_method is required.
+//
+// - parent: The name of the KeyRing associated with the ImportJobs.
 func (r *ProjectsLocationsKeyRingsImportJobsService) Create(parent string, importjob *ImportJob) *ProjectsLocationsKeyRingsImportJobsCreateCall {
 	c := &ProjectsLocationsKeyRingsImportJobsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -6846,8 +10263,8 @@ func (r *ProjectsLocationsKeyRingsImportJobsService) Create(parent string, impor
 }
 
 // ImportJobId sets the optional parameter "importJobId": Required. It
-// must be unique within a KeyRing and match the regular
-// expression `[a-zA-Z0-9_-]{1,63}`
+// must be unique within a KeyRing and match the regular expression
+// `[a-zA-Z0-9_-]{1,63}`
 func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) ImportJobId(importJobId string) *ProjectsLocationsKeyRingsImportJobsCreateCall {
 	c.urlParams_.Set("importJobId", importJobId)
 	return c
@@ -6880,7 +10297,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6920,17 +10337,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) Do(opts ...googleapi.Cal
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ImportJob{
 		ServerResponse: googleapi.ServerResponse{
@@ -6944,7 +10361,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) Do(opts ...googleapi.Cal
 	}
 	return ret, nil
 	// {
-	//   "description": "Create a new ImportJob within a KeyRing.\n\nImportJob.import_method is required.",
+	//   "description": "Create a new ImportJob within a KeyRing. ImportJob.import_method is required.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/importJobs",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.importJobs.create",
@@ -6953,12 +10370,12 @@ func (c *ProjectsLocationsKeyRingsImportJobsCreateCall) Do(opts ...googleapi.Cal
 	//   ],
 	//   "parameters": {
 	//     "importJobId": {
-	//       "description": "Required. It must be unique within a KeyRing and match the regular\nexpression `[a-zA-Z0-9_-]{1,63}`",
+	//       "description": "Required. It must be unique within a KeyRing and match the regular expression `[a-zA-Z0-9_-]{1,63}`",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The name of the KeyRing associated with the\nImportJobs.",
+	//       "description": "Required. The name of the KeyRing associated with the ImportJobs.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -6992,6 +10409,8 @@ type ProjectsLocationsKeyRingsImportJobsGetCall struct {
 }
 
 // Get: Returns metadata for a given ImportJob.
+//
+// - name: The name of the ImportJob to get.
 func (r *ProjectsLocationsKeyRingsImportJobsService) Get(name string) *ProjectsLocationsKeyRingsImportJobsGetCall {
 	c := &ProjectsLocationsKeyRingsImportJobsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -7035,7 +10454,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsImportJobsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7073,17 +10492,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetCall) Do(opts ...googleapi.CallOp
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ImportJob{
 		ServerResponse: googleapi.ServerResponse{
@@ -7136,10 +10555,14 @@ type ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall struct {
 	header_      http.Header
 }
 
-// GetIamPolicy: Gets the access control policy for a resource.
-// Returns an empty policy if the resource exists and does not have a
-// policy
+// GetIamPolicy: Gets the access control policy for a resource. Returns
+// an empty policy if the resource exists and does not have a policy
 // set.
+//
+//   - resource: REQUIRED: The resource for which the policy is being
+//     requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsImportJobsService) GetIamPolicy(resource string) *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -7147,18 +10570,18 @@ func (r *ProjectsLocationsKeyRingsImportJobsService) GetIamPolicy(resource strin
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned.
-//
-// Valid values are 0, 1, and 3. Requests specifying an invalid value
-// will be
-// rejected.
-//
-// Requests for policies with any conditional bindings must specify
-// version 3.
-// Policies without any conditional bindings may specify any valid value
-// or
-// leave the field unset.
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
+// (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
 	return c
@@ -7201,7 +10624,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7239,17 +10662,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) Do(opts ...googlea
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -7263,7 +10686,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) Do(opts ...googlea
 	}
 	return ret, nil
 	// {
-	//   "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
+	//   "description": "Gets the access control policy for a resource. Returns an empty policy if the resource exists and does not have a policy set.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/importJobs/{importJobsId}:getIamPolicy",
 	//   "httpMethod": "GET",
 	//   "id": "cloudkms.projects.locations.keyRings.importJobs.getIamPolicy",
@@ -7272,13 +10695,13 @@ func (c *ProjectsLocationsKeyRingsImportJobsGetIamPolicyCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned.\n\nValid values are 0, 1, and 3. Requests specifying an invalid value will be\nrejected.\n\nRequests for policies with any conditional bindings must specify version 3.\nPolicies without any conditional bindings may specify any valid value or\nleave the field unset.",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/importJobs/[^/]+$",
 	//       "required": true,
@@ -7309,6 +10732,9 @@ type ProjectsLocationsKeyRingsImportJobsListCall struct {
 }
 
 // List: Lists ImportJobs.
+//
+//   - parent: The resource name of the KeyRing to list, in the format
+//     `projects/*/locations/*/keyRings/*`.
 func (r *ProjectsLocationsKeyRingsImportJobsService) List(parent string) *ProjectsLocationsKeyRingsImportJobsListCall {
 	c := &ProjectsLocationsKeyRingsImportJobsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -7316,45 +10742,36 @@ func (r *ProjectsLocationsKeyRingsImportJobsService) List(parent string) *Projec
 }
 
 // Filter sets the optional parameter "filter": Only include resources
-// that match the filter in the response. For
-// more information, see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// that match the filter in the response. For more information, see
+// Sorting and filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsImportJobsListCall) Filter(filter string) *ProjectsLocationsKeyRingsImportJobsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
 // OrderBy sets the optional parameter "orderBy": Specify how the
-// results should be sorted. If not specified, the
-// results will be sorted in the default order. For more information,
-// see
-// [Sorting and filtering
-// list
-// results](https://cloud.google.com/kms/docs/sorting-and-filtering)
-// .
+// results should be sorted. If not specified, the results will be
+// sorted in the default order. For more information, see Sorting and
+// filtering list results
+// (https://cloud.google.com/kms/docs/sorting-and-filtering).
 func (c *ProjectsLocationsKeyRingsImportJobsListCall) OrderBy(orderBy string) *ProjectsLocationsKeyRingsImportJobsListCall {
 	c.urlParams_.Set("orderBy", orderBy)
 	return c
 }
 
 // PageSize sets the optional parameter "pageSize": Optional limit on
-// the number of ImportJobs to include in the
-// response. Further ImportJobs can subsequently be obtained
-// by
-// including the ListImportJobsResponse.next_page_token in a
-// subsequent
-// request. If unspecified, the server will pick an appropriate default.
+// the number of ImportJobs to include in the response. Further
+// ImportJobs can subsequently be obtained by including the
+// ListImportJobsResponse.next_page_token in a subsequent request. If
+// unspecified, the server will pick an appropriate default.
 func (c *ProjectsLocationsKeyRingsImportJobsListCall) PageSize(pageSize int64) *ProjectsLocationsKeyRingsImportJobsListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Optional
-// pagination token, returned earlier
-// via
+// pagination token, returned earlier via
 // ListImportJobsResponse.next_page_token.
 func (c *ProjectsLocationsKeyRingsImportJobsListCall) PageToken(pageToken string) *ProjectsLocationsKeyRingsImportJobsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
@@ -7398,7 +10815,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsKeyRingsImportJobsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7436,17 +10853,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsListCall) Do(opts ...googleapi.CallO
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &ListImportJobsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -7469,28 +10886,28 @@ func (c *ProjectsLocationsKeyRingsImportJobsListCall) Do(opts ...googleapi.CallO
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Optional. Only include resources that match the filter in the response. For\nmore information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Only include resources that match the filter in the response. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "orderBy": {
-	//       "description": "Optional. Specify how the results should be sorted. If not specified, the\nresults will be sorted in the default order. For more information, see\n[Sorting and filtering list\nresults](https://cloud.google.com/kms/docs/sorting-and-filtering).",
+	//       "description": "Optional. Specify how the results should be sorted. If not specified, the results will be sorted in the default order. For more information, see [Sorting and filtering list results](https://cloud.google.com/kms/docs/sorting-and-filtering).",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "Optional. Optional limit on the number of ImportJobs to include in the\nresponse. Further ImportJobs can subsequently be obtained by\nincluding the ListImportJobsResponse.next_page_token in a subsequent\nrequest. If unspecified, the server will pick an appropriate default.",
+	//       "description": "Optional. Optional limit on the number of ImportJobs to include in the response. Further ImportJobs can subsequently be obtained by including the ListImportJobsResponse.next_page_token in a subsequent request. If unspecified, the server will pick an appropriate default.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. Optional pagination token, returned earlier via\nListImportJobsResponse.next_page_token.",
+	//       "description": "Optional. Optional pagination token, returned earlier via ListImportJobsResponse.next_page_token.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The resource name of the KeyRing to list, in the format\n`projects/*/locations/*/keyRings/*`.",
+	//       "description": "Required. The resource name of the KeyRing to list, in the format `projects/*/locations/*/keyRings/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$",
 	//       "required": true,
@@ -7542,11 +10959,13 @@ type ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall struct {
 }
 
 // SetIamPolicy: Sets the access control policy on the specified
-// resource. Replaces any
-// existing policy.
+// resource. Replaces any existing policy. Can return `NOT_FOUND`,
+// `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.
 //
-// Can return Public Errors: NOT_FOUND, INVALID_ARGUMENT and
-// PERMISSION_DENIED
+//   - resource: REQUIRED: The resource for which the policy is being
+//     specified. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsImportJobsService) SetIamPolicy(resource string, setiampolicyrequest *SetIamPolicyRequest) *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall {
 	c := &ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -7581,7 +11000,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7621,17 +11040,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall) Do(opts ...googlea
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &Policy{
 		ServerResponse: googleapi.ServerResponse{
@@ -7645,7 +11064,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall) Do(opts ...googlea
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.\n\nCan return Public Errors: NOT_FOUND, INVALID_ARGUMENT and PERMISSION_DENIED",
+	//   "description": "Sets the access control policy on the specified resource. Replaces any existing policy. Can return `NOT_FOUND`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED` errors.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/importJobs/{importJobsId}:setIamPolicy",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.importJobs.setIamPolicy",
@@ -7654,7 +11073,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsSetIamPolicyCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy is being specified. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/importJobs/[^/]+$",
 	//       "required": true,
@@ -7688,16 +11107,16 @@ type ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall struct {
 }
 
 // TestIamPermissions: Returns permissions that a caller has on the
-// specified resource.
-// If the resource does not exist, this will return an empty set
-// of
-// permissions, not a NOT_FOUND error.
+// specified resource. If the resource does not exist, this will return
+// an empty set of permissions, not a `NOT_FOUND` error. Note: This
+// operation is designed to be used for building permission-aware UIs
+// and command-line tools, not for authorization checking. This
+// operation may "fail open" without warning.
 //
-// Note: This operation is designed to be used for building
-// permission-aware
-// UIs and command-line tools, not for authorization checking. This
-// operation
-// may "fail open" without warning.
+//   - resource: REQUIRED: The resource for which the policy detail is
+//     being requested. See Resource names
+//     (https://cloud.google.com/apis/design/resource_names) for the
+//     appropriate value for this field.
 func (r *ProjectsLocationsKeyRingsImportJobsService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall {
 	c := &ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -7732,7 +11151,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall) Header() htt
 
 func (c *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/1.13.0 gdcl/20191026")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/"+internal.Version)
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7772,17 +11191,17 @@ func (c *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall) Do(opts ...g
 		if res.Body != nil {
 			res.Body.Close()
 		}
-		return nil, &googleapi.Error{
+		return nil, gensupport.WrapError(&googleapi.Error{
 			Code:   res.StatusCode,
 			Header: res.Header,
-		}
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer googleapi.CloseBody(res)
 	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
+		return nil, gensupport.WrapError(err)
 	}
 	ret := &TestIamPermissionsResponse{
 		ServerResponse: googleapi.ServerResponse{
@@ -7796,7 +11215,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall) Do(opts ...g
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
+	//   "description": "Returns permissions that a caller has on the specified resource. If the resource does not exist, this will return an empty set of permissions, not a `NOT_FOUND` error. Note: This operation is designed to be used for building permission-aware UIs and command-line tools, not for authorization checking. This operation may \"fail open\" without warning.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/keyRings/{keyRingsId}/importJobs/{importJobsId}:testIamPermissions",
 	//   "httpMethod": "POST",
 	//   "id": "cloudkms.projects.locations.keyRings.importJobs.testIamPermissions",
@@ -7805,7 +11224,7 @@ func (c *ProjectsLocationsKeyRingsImportJobsTestIamPermissionsCall) Do(opts ...g
 	//   ],
 	//   "parameters": {
 	//     "resource": {
-	//       "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
+	//       "description": "REQUIRED: The resource for which the policy detail is being requested. See [Resource names](https://cloud.google.com/apis/design/resource_names) for the appropriate value for this field.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/importJobs/[^/]+$",
 	//       "required": true,

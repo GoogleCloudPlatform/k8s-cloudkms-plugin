@@ -3,23 +3,18 @@ module github.com/GoogleCloudPlatform/k8s-cloudkms-plugin
 go 1.13
 
 require (
-	cloud.google.com/go v0.47.0 // indirect
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.3.1
+	github.com/golang/glog v1.1.0
+	github.com/golang/protobuf v1.5.3
+	github.com/google/go-cmp v0.5.9
 	github.com/google/go-tpm v0.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus/client_golang v1.2.1
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	go.opencensus.io v0.22.2 // indirect
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	google.golang.org/api v0.13.0
-	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20191108220845-16a3f7862a1a // indirect
-	google.golang.org/grpc v1.25.1
+	github.com/prometheus/client_model v0.3.0
+	golang.org/x/net v0.9.0
+	golang.org/x/oauth2 v0.7.0
+	google.golang.org/api v0.114.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/api v0.0.0-20191108065827-59e77acf588f
