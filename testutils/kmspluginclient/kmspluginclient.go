@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	plugin "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v1"
 	"google.golang.org/grpc"
 )
 

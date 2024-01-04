@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	msgspb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	msgspb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v1"
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/kmspluginclient"
 	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"

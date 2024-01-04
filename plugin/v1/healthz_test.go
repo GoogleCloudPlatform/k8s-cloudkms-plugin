@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+package v1
 
 import (
 	"encoding/json"
@@ -28,6 +28,8 @@ import (
 	"google.golang.org/api/googleapi"
 
 	"github.com/phayes/freeport"
+
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
 
 func TestHealthzServer(t *testing.T) {
@@ -137,13 +139,15 @@ func mustServeHealthz(t *testing.T, tt *pluginTestCase) int {
 	}
 
 	h := &HealthZ{
-		KeyName:        tt.keyURI,
-		KeyService:     tt.keyService,
-		UnixSocketPath: tt.Plugin.pathToUnixSocket,
-		CallTimeout:    5 * time.Second,
-		ServingURL: &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
-			Path: "healthz",
+		plugin.HealthZ{
+			KeyName:        tt.KeyURI,
+			KeyService:     tt.KeyService,
+			UnixSocketPath: tt.Plugin.PathToUnixSocket,
+			CallTimeout:    5 * time.Second,
+			ServingURL: &url.URL{
+				Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
+				Path: "healthz",
+			},
 		},
 	}
 

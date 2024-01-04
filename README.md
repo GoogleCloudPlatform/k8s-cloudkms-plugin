@@ -1,3 +1,4 @@
+
 # Kubernetes KMS Plugin for Cloud KMS
 
 This repo contains an implementation of a [Kubernetes KMS Plugin][k8s-kms-plugin] for [Cloud KMS][gcp-kms].
@@ -32,6 +33,7 @@ This guide makes a few assumptions:
 
 Set the following environment variables to your values:
 
+---
 ```sh
 # The ID of the project. Please note that this is the ID, not the NAME of the
 # project. In some cases they are the same, but they can be different. Run
@@ -49,9 +51,11 @@ KMS_LOCATION="<location>"
 KMS_KEY_RING="<key-ring name>"
 KMS_CRYPTO_KEY="<crypto-key name>"
 ```
+---
 
 Here is an example (replace with your values):
 
+---
 ```sh
 PROJECT_ID="my-gce-project23"
 SERVICE_ACCOUNT_EMAIL="kms-plugin@my-gce-project23@iam.gserviceaccount.com"
@@ -59,11 +63,13 @@ KMS_LOCATION="us-east4"
 KMS_KEY_RING="my-keyring"
 KMS_CRYPTO_KEY="my-key"
 ```
+---
 
 ### Create Cloud KMS key
 
 Create the key in Cloud KMS.
 
+---
 ```sh
 # Enable the Cloud KMS API (this only needs to be done once per project
 # where KMS is being used).
@@ -81,11 +87,13 @@ $ gcloud kms keys create "${KMS_KEY_NAME}" \
     --location "${KMS_LOCATION}" \
     --keyring "${KMS_KEY_RING}"
 ```
+---
 
 ### Grant Service Account key permissions
 
 Grant the dedicated service account permission to encrypt/decrypt data using the Cloud KMS crypto key we just created:
 
+---
 ```sh
 $ gcloud kms keys add-iam-policy-binding "${KMS_KEY_NAME}" \
     --project "${PROJECT_ID}" \
@@ -94,21 +102,26 @@ $ gcloud kms keys add-iam-policy-binding "${KMS_KEY_NAME}" \
     --member "serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
     --role "roles/cloudkms.cryptoKeyEncrypterDecrypter"
 ```
+---
 
 In addition to the IAM permissions, you also need to increase the oauth scopes on the VM. The following command assumes your VM master nodes require the `gke-default` scopes. If that is not the case, alter the command accordingly. Replace "my-master-instance" with the name of your VM:
 
+---
 ```sh
 $ gcloud compute instances set-service-account "my-master-instance" \
    --service-account "${SERVICE_ACCOUNT_EMAIL}" \
    --scopes "gke-default, https://www.googleapis.com/auth/cloudkms"
 ```
+---
 
 Restart any instances to pickup the scope changes:
 
+---
 ```sh
 $ gcloud compute instances stop "my-master-instance"
 $ gcloud compute instances start "my-master-instance"
 ```
+---
 
 
 ### Deploy the KMS plugin
@@ -119,17 +132,21 @@ There are a few options for deploying the KMS plugin into a Kubernetes cluster:
 
     A pre-built image is available at:
 
-    ```text
+---    
+```text
     gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:$TAG
     ```
+---
 
     where `TAG` refers to a published git tag or "latest" for builds off the master branch. You can also build and publish your own image by cloning this repository and running:
 
-    ```sh
+---    
+```sh
     $ gcloud builds submit \
         --tag gcr.io/$PROJECT_ID/k8s-cloudkms-plugin \
         .
     ```
+---
 
 1. As a Go binary
 1. As a [static pod][k8s-static-pod]
@@ -139,15 +156,18 @@ There are a few options for deploying the KMS plugin into a Kubernetes cluster:
 
 **On the Kubernetes master VM**, run the following command to pull the Docker image. Replace the URL with your repository's URL:
 
+---
 ```sh
 # Pick a tag and pin to that tag
 $ docker pull "gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:1.2.3"
 ```
+---
 
 #### Test the interaction between KMS Plugin and Cloud KMS
 
 **On the Kubernetes master VM**, instruct the KMS plugin to perform a self-test. First, set some environment variables:
 
+---
 ```sh
 KMS_FULL_KEY="projects/${PROJECT_ID}/locations/${KMS_LOCATION}/keyRings/${KMS_KEY_RING}/cryptoKeys/${KMS_CRYPTO_KEY}"
 SOCKET_DIR="/var/kms-plugin"
@@ -155,9 +175,11 @@ SOCKET_PATH="${SOCKET_DIR}/socket.sock"
 PLUGIN_HEALTHZ_PORT="8081"
 PLUGIN_IMAGE="gcr.io/cloud-kms-lab/k8s-cloudkms-plugin:1.2.3" # Pick a tag
 ```
+---
 
 Start the container:
 
+---
 ```sh
 $ docker run \
     --name="kms-plugin" \
@@ -172,18 +194,23 @@ $ docker run \
         --path-to-unix-socket="${SOCKET_PATH}" \
         --key-uri="${KMS_FULL_KEY}"
 ```
+---
 
 Probe the plugin on it's healthz port. You should expect the command to return "OK":
 
+---
 ```sh
 $ curl "http://localhost:${PLUGIN_HEALTHZ_PORT}/healthz?ping-kms=true"
 ```
+---
 
 Stop the container:
 
+---
 ```sh
 $ docker kill --signal="SIGHUP" kms-plugin
 ```
+---
 
 Finally, depending on your deployment strategy, configure the KMS plugin container to automatically boot at-startup. This can be done with systemd or an orchestration/configuration management tool.
 
@@ -192,6 +219,7 @@ Finally, depending on your deployment strategy, configure the KMS plugin contain
 
 Update the kube-apiserver's encryption configuration to point to the shared socket from the KMS plugin. If you changed the `SOCKET_DIR` or `SOCKET_PATH` variables above, update the `endpoint` in the configuration below accordingly:
 
+---
 ```yaml
 kind: EncryptionConfiguration
 apiVersion: apiserver.config.k8s.io/v1
@@ -200,11 +228,12 @@ resources:
     - secrets
     providers:
     - kms:
+        apiVersion: v2
         name: myKmsPlugin
         endpoint: unix:///var/kms-plugin/socket.sock
-        cachesize: 100
    - identity: {}
 ```
+---
 
 More information about this file and configuration options can be found in the [Kubernetes KMS plugin documentation][k8s-kms-plugin].
 

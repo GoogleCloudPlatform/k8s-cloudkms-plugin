@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+package v1
 
 import (
 	"bufio"
@@ -39,6 +39,8 @@ import (
 	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheuspb "github.com/prometheus/client_model/go"
+
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
 
 const (
@@ -98,7 +100,7 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 		t.Fatalf("failed to instantiate cloud kms httpClient: %v", err)
 	}
 	fakeKMSKeyService.BasePath = fakeKMSSrv.URL()
-	plugin := New(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, s.Name())
+	plugin := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, s.Name())
 	pluginRPCSrv, errChan := plugin.ServeKMSRequests()
 	// Giving some time for plugin to start while listening on the error channel.
 	select {
@@ -330,9 +332,9 @@ func TestSocket(t *testing.T) {
 	tt := setUpWithResponses(t, keyName, 0)
 	defer tt.tearDown()
 
-	fileInfo, err := os.Stat(tt.Plugin.pathToUnixSocket)
+	fileInfo, err := os.Stat(tt.Plugin.PathToUnixSocket)
 	if err != nil {
-		t.Fatalf("failed to stat socket %q, error %v", tt.Plugin.pathToUnixSocket, err)
+		t.Fatalf("failed to stat socket %q, error %v", tt.Plugin.PathToUnixSocket, err)
 	}
 
 	if (fileInfo.Mode() & os.ModeSocket) != os.ModeSocket {
@@ -341,7 +343,7 @@ func TestSocket(t *testing.T) {
 
 	tt.GracefulStop()
 
-	if _, err := os.Stat(tt.Plugin.pathToUnixSocket); err == nil {
+	if _, err := os.Stat(tt.Plugin.PathToUnixSocket); err == nil {
 		t.Fatal("expected socket to be cleaned-up by now.")
 	}
 }
@@ -374,7 +376,7 @@ func mustServeMetrics(t *testing.T) int {
 		t.Fatalf("Failed to allocate a free port for metrics server, err: %v", err)
 	}
 
-	m := &Metrics{
+	m := &plugin.Metrics{
 		ServingURL: &url.URL{
 			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
 			Path: "metrics",

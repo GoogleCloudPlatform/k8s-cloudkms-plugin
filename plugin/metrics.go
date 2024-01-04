@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ type Metrics struct {
 }
 
 var (
-	cloudKMSOperationalLatencies = prometheus.NewHistogramVec(
+	CloudKMSOperationalLatencies = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "roundtrip_latencies",
 			Help: "Latencies in milliseconds of cloud kms operations.",
@@ -42,7 +42,7 @@ var (
 		[]string{"operation_type"},
 	)
 
-	cloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
+	CloudKMSOperationalFailuresTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "failures_count",
 			Help: "Total number of failed kms operations.",
@@ -52,12 +52,12 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(cloudKMSOperationalLatencies)
-	prometheus.MustRegister(cloudKMSOperationalFailuresTotal)
+	prometheus.MustRegister(CloudKMSOperationalLatencies)
+	prometheus.MustRegister(CloudKMSOperationalFailuresTotal)
 }
 
-func recordCloudKMSOperation(operationType string, start time.Time) {
-	cloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
+func RecordCloudKMSOperation(operationType string, start time.Time) {
+	CloudKMSOperationalLatencies.WithLabelValues(operationType).Observe(sinceInMilliseconds(start))
 }
 
 func sinceInMilliseconds(start time.Time) float64 {
