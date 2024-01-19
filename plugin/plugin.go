@@ -25,6 +25,7 @@ import (
 type PluginConfig struct {
 	KeyService       *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
 	KeyURI           string
+	KeySuffix        string
 	PathToUnixSocket string
 	// Embedding these only to shorten access to fields.
 	net.Listener

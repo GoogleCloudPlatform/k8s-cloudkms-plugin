@@ -49,6 +49,7 @@ var (
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/var/run/kmsplugin/socket.sock", "Full path to Unix socket that is used for communicating with KubeAPI Server, or Linux socket namespace object - must start with @")
 	kmsVersion       = flag.String("kms", "v2", "Kubernetes KMS API version. Possible values: v1, v2. Default value is v2.")
+	keySuffix        = flag.String("key-suffix", "", "Set to a unique value in case if plugin is reconfigured to use Cloud KMS key version that was already in use before. Applicable only in KMS API v2 mode")
 
 	// Integration testing arguments.
 	integrationTest = flag.Bool("integration-test", false, "When set to true, http.DefaultClient will be used, as opposed callers identity acquired with a TokenService.")
@@ -103,7 +104,7 @@ func main() {
 		})
 		glog.Info("Kubernetes KMS API v1beta1")
 	default:
-		p = v2.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *pathToUnixSocket)
+		p = v2.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *keySuffix, *pathToUnixSocket)
 		hc = v2.NewHealthChecker(*keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
 			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
 			Path: *healthzPath,

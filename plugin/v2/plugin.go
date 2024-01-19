@@ -46,22 +46,23 @@ const (
 // to return as KeyId in case when the Cloud KMS service is not reachable
 // because KeyId in StatusResponse cannot be empty and shouldn't trigger key migration
 // in case of transient remote service unavailability
-var lastKeyVersion string
+var lastKeyId string
 
 // Regex to extract Cloud KMS key resource name from the key version resource name
-var compRegEx = regexp.MustCompile(`projects\/[^/]+\/locations\/[^/]+\/keyRings\/[^/]+\/cryptoKeys\/[^/]+`)
+var keyResourceRegEx = regexp.MustCompile(`projects\/[^/]+\/locations\/[^/]+\/keyRings\/[^/]+\/cryptoKeys\/[^/:]+`)
 
 type Plugin struct {
 	plugin.PluginConfig
 }
 
 // New constructs Plugin.
-func NewPlugin(keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService, keyURI, pathToUnixSocketFile string) *Plugin {
-	lastKeyVersion = keyURI
+func NewPlugin(keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService, keyURI, keySuffix string, pathToUnixSocketFile string) *Plugin {
+	lastKeyId = getKeyId(keyURI, keySuffix)
 	return &Plugin{
 		plugin.PluginConfig{
 			KeyService:       keyService,
 			KeyURI:           keyURI,
+			KeySuffix:        keySuffix,
 			PathToUnixSocket: pathToUnixSocketFile,
 		},
 	}
@@ -80,10 +81,10 @@ func (g *Plugin) Status(ctx context.Context, request *StatusRequest) (*StatusRes
 	resp, err := g.KeyService.Encrypt(g.KeyURI, req).Context(ctx).Do()
 	if err != nil {
 		plugin.CloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
-		response = StatusResponse{Version: apiVersion, Healthz: keyNotReachable, KeyId: lastKeyVersion}
+		response = StatusResponse{Version: apiVersion, Healthz: keyNotReachable, KeyId: lastKeyId}
 	} else {
-		lastKeyVersion = resp.Name
-		response = StatusResponse{Version: apiVersion, Healthz: ok, KeyId: resp.Name}
+		lastKeyId = getKeyId(resp.Name, g.KeySuffix)
+		response = StatusResponse{Version: apiVersion, Healthz: ok, KeyId: lastKeyId}
 	}
 
 	glog.V(4).Infof("Status response: %s", response.Healthz)
@@ -107,9 +108,9 @@ func (g *Plugin) Encrypt(ctx context.Context, request *EncryptRequest) (*Encrypt
 		return nil, err
 	}
 
-	lastKeyVersion = resp.Name
-	response := EncryptResponse{Ciphertext: []byte(cipher), KeyId: resp.Name}
-	glog.V(4).Infof("Processed request for encryption %s using %s", request.Uid, resp.Name)
+	lastKeyId = getKeyId(resp.Name, g.KeySuffix)
+	response := EncryptResponse{Ciphertext: []byte(cipher), KeyId: lastKeyId}
+	glog.V(4).Infof("Processed request for encryption %s using %s", request.Uid, lastKeyId)
 	return &response, nil
 }
 
@@ -121,7 +122,7 @@ func (g *Plugin) Decrypt(ctx context.Context, request *DecryptRequest) (*Decrypt
 	req := &cloudkms.DecryptRequest{
 		Ciphertext: base64.StdEncoding.EncodeToString(request.Ciphertext),
 	}
-	resp, err := g.KeyService.Decrypt(extractKeyVersion(request.KeyId), req).Context(ctx).Do()
+	resp, err := g.KeyService.Decrypt(extractKeyName(request.KeyId), req).Context(ctx).Do()
 	if err != nil {
 		plugin.CloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
 		return nil, err
@@ -137,8 +138,8 @@ func (g *Plugin) Decrypt(ctx context.Context, request *DecryptRequest) (*Decrypt
 }
 
 // Extracts the Cloud KMS key resource name from the key version resource name
-func extractKeyVersion(keyVersionId string) string {
-	return compRegEx.FindString(keyVersionId)
+func extractKeyName(keyVersionId string) string {
+	return keyResourceRegEx.FindString(keyVersionId)
 }
 
 func (g *Plugin) setupRPCServer() error {
@@ -187,4 +188,18 @@ func (g *Plugin) cleanSockFile() error {
 		return fmt.Errorf("failed to delete the socket file, error: %v", err)
 	}
 	return nil
+}
+
+// If the key id suffix has been passed in the command line parameters
+// this function will return a key id value constructed from the Cloud KMS
+// key version with appended suffix separated by ":"
+// This is to return a unique key id to Kubernetes in case if the plugin
+// is reconfigured to use a Cloud KMS key version which has been already in
+// use before
+func getKeyId(keyVersion string, keySuffix string) string {
+	if keySuffix == "" {
+		return keyVersion
+	} else {
+		return keyVersion + ":" + keySuffix
+	}
 }

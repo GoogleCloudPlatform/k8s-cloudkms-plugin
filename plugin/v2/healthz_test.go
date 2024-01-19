@@ -54,10 +54,11 @@ func TestHealthzServer(t *testing.T) {
 	)
 
 	testCases := []struct {
-		desc     string
-		query    string
-		response []json.Marshaler
-		want     int
+		desc      string
+		query     string
+		response  []json.Marshaler
+		want      int
+		keySuffix string
 	}{
 		//{
 		//	desc:     "Positive response for TestIAM, not pinging CloudKMS",
@@ -65,9 +66,10 @@ func TestHealthzServer(t *testing.T) {
 		//	want:     http.StatusOK,
 		//},
 		{
-			desc:     "Negative response for TestIAM, not pinging CloudKMS",
-			response: []json.Marshaler{negativeTestIAMResponse},
-			want:     http.StatusForbidden,
+			desc:      "Negative response for TestIAM, not pinging CloudKMS",
+			response:  []json.Marshaler{negativeTestIAMResponse},
+			want:      http.StatusForbidden,
+			keySuffix: "test",
 		},
 		//{
 		//	desc:     "Positive response for TestIAM, Positive ping from CloudKMS",
@@ -89,7 +91,7 @@ func TestHealthzServer(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
 
-			tt := setUpWithResponses(t, keyName, 0, testCase.response...)
+			tt := setUpWithResponses(t, keyName, testCase.keySuffix, 0, testCase.response...)
 			defer tt.tearDown()
 
 			// Ensure that serving both Metrics and Healthz

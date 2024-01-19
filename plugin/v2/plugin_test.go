@@ -47,6 +47,7 @@ import (
 const (
 	keyName        = "projects/my-project/locations/us-east1/keyRings/my-key-ring/cryptoKeys/my-key"
 	keyVersionName = keyName + "/cryptoKeyVersions/1"
+	keySuffix      = "test"
 	// Tests fake encryption by assuming that "foo" decrypts to "bar"
 	// Zm9v is base64 encoded foo
 	// YmFy is base64 encoded "bar"
@@ -86,7 +87,7 @@ func (p *pluginTestCase) tearDown() {
 	p.fakeKMSSrv.Close()
 }
 
-func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTestCase {
+func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string, keySuffix string) *pluginTestCase {
 	t.Helper()
 
 	s, err := ioutil.TempFile("", "plugin-test")
@@ -102,7 +103,7 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 		t.Fatalf("failed to instantiate cloud kms httpClient: %v", err)
 	}
 	fakeKMSKeyService.BasePath = fakeKMSSrv.URL()
-	plugin := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, s.Name())
+	plugin := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, keySuffix, s.Name())
 	pluginRPCSrv, errChan := plugin.ServeKMSRequests()
 	// Giving some time for plugin to start while listening on the error channel.
 	select {
@@ -114,13 +115,13 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 	return &pluginTestCase{plugin, pluginRPCSrv, fakeKMSSrv}
 }
 
-func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
+func setUpWithResponses(t *testing.T, keyName string, keySuffix string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
 	t.Helper()
 	fakeKMSSrv, err := fakekms.NewWithResponses(keyName, 0, delay, responses...)
 	if err != nil {
 		t.Fatalf("Failed to construct FakeKMS, error: %v", err)
 	}
-	return setUp(t, fakeKMSSrv, keyName)
+	return setUp(t, fakeKMSSrv, keyName, keySuffix)
 }
 
 func TestMain(m *testing.M) {
@@ -137,6 +138,7 @@ func TestEncrypt(t *testing.T) {
 		wantDecryptRequests []*cloudkms.DecryptRequest
 		testFn              func(t *testing.T, p *Plugin)
 		response            json.Marshaler
+		keySuffix           string
 	}{
 		{
 			desc:                "Encrypt",
@@ -160,6 +162,30 @@ func TestEncrypt(t *testing.T) {
 			},
 			response: positiveDecryptResponse,
 		},
+		{
+			desc:                "Encrypt",
+			wantEncryptRequests: []*cloudkms.EncryptRequest{{Plaintext: plaintext}},
+			testFn: func(t *testing.T, p *Plugin) {
+				encryptRequest := EncryptRequest{Plaintext: []byte("foo")}
+				if _, err := p.Encrypt(context.Background(), &encryptRequest); err != nil {
+					t.Fatalf("Failure while submitting request %v, error %v", encryptRequest, err)
+				}
+			},
+			response:  positiveEncryptResponse,
+			keySuffix: "test",
+		},
+		{
+			desc:                "Decrypt",
+			wantDecryptRequests: []*cloudkms.DecryptRequest{{Ciphertext: ciphertext}},
+			testFn: func(t *testing.T, p *Plugin) {
+				decryptRequest := DecryptRequest{Ciphertext: []byte("bar"), KeyId: keyVersionName}
+				if _, err := p.Decrypt(context.Background(), &decryptRequest); err != nil {
+					t.Fatalf("Failure while submitting request %v, error %v", decryptRequest, err)
+				}
+			},
+			response:  positiveDecryptResponse,
+			keySuffix: "test",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -168,7 +194,7 @@ func TestEncrypt(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
 
-			tt := setUpWithResponses(t, keyName, 0, testCase.response)
+			tt := setUpWithResponses(t, keyName, testCase.keySuffix, 0, testCase.response)
 			defer tt.tearDown()
 
 			testCase.testFn(t, tt.Plugin)
@@ -188,10 +214,11 @@ func TestGatherMetrics(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		desc     string
-		testFn   func(t *testing.T, p *Plugin)
-		want     []string
-		response json.Marshaler
+		desc      string
+		testFn    func(t *testing.T, p *Plugin)
+		want      []string
+		response  json.Marshaler
+		keySuffix string
 	}{
 		{
 			desc: "Decrypt",
@@ -263,7 +290,7 @@ func TestGatherMetrics(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
 
-			tt := setUpWithResponses(t, keyName, 0, testCase.response)
+			tt := setUpWithResponses(t, keyName, testCase.keySuffix, 0, testCase.response)
 			defer tt.tearDown()
 			testCase.testFn(t, tt.Plugin)
 
@@ -285,6 +312,7 @@ func TestKMSTimeout(t *testing.T) {
 		responseDelay time.Duration
 		pluginTimeout time.Duration
 		testFn        func(ctx context.Context, t *testing.T, p *Plugin)
+		keySuffix     string
 	}{
 		{
 			desc:          "Encrypt",
@@ -297,6 +325,7 @@ func TestKMSTimeout(t *testing.T) {
 					t.Fatal("exected to timeout")
 				}
 			},
+			keySuffix: "test",
 		},
 		{
 			desc:          "Decrypt",
@@ -309,6 +338,7 @@ func TestKMSTimeout(t *testing.T) {
 					t.Fatal("exected to timeout")
 				}
 			},
+			keySuffix: "test",
 		},
 	}
 
@@ -318,7 +348,7 @@ func TestKMSTimeout(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
 
-			tt := setUpWithResponses(t, keyName, testCase.responseDelay, testCase.response)
+			tt := setUpWithResponses(t, keyName, testCase.keySuffix, testCase.responseDelay, testCase.response)
 			defer tt.tearDown()
 
 			ctx, cancel := context.WithTimeout(context.Background(), testCase.pluginTimeout)
@@ -331,7 +361,7 @@ func TestKMSTimeout(t *testing.T) {
 func TestSocket(t *testing.T) {
 	t.Parallel()
 
-	tt := setUpWithResponses(t, keyName, 0)
+	tt := setUpWithResponses(t, keyName, keySuffix, 0)
 	defer tt.tearDown()
 
 	fileInfo, err := os.Stat(tt.Plugin.PathToUnixSocket)
@@ -356,7 +386,7 @@ func TestMetricsServer(t *testing.T) {
 	ctx := context.Background()
 	metricsPort := mustServeMetrics(t)
 
-	tt := setUpWithResponses(t, keyName, 0, positiveEncryptResponse)
+	tt := setUpWithResponses(t, keyName, keySuffix, 0, positiveEncryptResponse)
 	defer tt.tearDown()
 
 	encryptRequest := EncryptRequest{Plaintext: []byte("foo")}
@@ -465,6 +495,22 @@ func TestExtractKeyVersion(t *testing.T) {
 			expectedKey:  keyName,
 		},
 		{
+			keyVersionId: keyName + "/cryptoKeyVersions/123:test",
+			expectedKey:  keyName,
+		},
+		{
+			keyVersionId: keyName + ":test",
+			expectedKey:  keyName,
+		},
+		{
+			keyVersionId: keyName + "/cryptoKeyVersions/123:",
+			expectedKey:  keyName,
+		},
+		{
+			keyVersionId: keyName + ":",
+			expectedKey:  keyName,
+		},
+		{
 			keyVersionId: "projects/my-project",
 			expectedKey:  "",
 		},
@@ -479,7 +525,7 @@ func TestExtractKeyVersion(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actualKey := extractKeyVersion(test.keyVersionId)
+		actualKey := extractKeyName(test.keyVersionId)
 		assert.Equal(t, test.expectedKey, actualKey)
 	}
 }
