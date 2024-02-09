@@ -200,9 +200,9 @@ resources:
     - secrets
     providers:
     - kms:
+        apiVersion: v2
         name: myKmsPlugin
         endpoint: unix:///var/kms-plugin/socket.sock
-        cachesize: 100
    - identity: {}
 ```
 

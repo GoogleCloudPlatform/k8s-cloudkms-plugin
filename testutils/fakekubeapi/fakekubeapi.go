@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	msgspb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	msgspb "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v1"
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/kmspluginclient"
 	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"

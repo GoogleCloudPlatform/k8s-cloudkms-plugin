@@ -31,7 +31,7 @@ It has these top-level messages:
 	EncryptRequest
 	EncryptResponse
 */
-package plugin
+package v1
 
 import (
 	fmt "fmt"

@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	v1 "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v1"
+	v2 "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v2"
 	"github.com/golang/glog"
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/option"
@@ -46,6 +48,8 @@ var (
 	gceConf          = flag.String("gce-config", "", "Path to gce.conf, if running on GKE.")
 	keyURI           = flag.String("key-uri", "", "Uri of the key use for crypto operations (ex. projects/my-project/locations/my-location/keyRings/my-key-ring/cryptoKeys/my-key)")
 	pathToUnixSocket = flag.String("path-to-unix-socket", "/var/run/kmsplugin/socket.sock", "Full path to Unix socket that is used for communicating with KubeAPI Server, or Linux socket namespace object - must start with @")
+	kmsVersion       = flag.String("kms", "v2", "Kubernetes KMS API version. Possible values: v1, v2. Default value is v2.")
+	keySuffix        = flag.String("key-suffix", "", "Set to a unique value in case if plugin is reconfigured to use Cloud KMS key version that was already in use before. Applicable only in KMS API v2 mode")
 
 	// Integration testing arguments.
 	integrationTest = flag.Bool("integration-test", false, "When set to true, http.DefaultClient will be used, as opposed callers identity acquired with a TokenService.")
@@ -81,17 +85,6 @@ func main() {
 		kms.BasePath = fmt.Sprintf("http://localhost:%d", *fakeKMSPort)
 	}
 
-	healthz := &plugin.HealthZ{
-		KeyName:        *keyURI,
-		KeyService:     kms.Projects.Locations.KeyRings.CryptoKeys,
-		UnixSocketPath: *pathToUnixSocket,
-		CallTimeout:    *healthzTimeout,
-		ServingURL: &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
-			Path: *healthzPath,
-		},
-	}
-
 	metrics := &plugin.Metrics{
 		ServingURL: &url.URL{
 			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*metricsPort), 10)),
@@ -99,10 +92,29 @@ func main() {
 		},
 	}
 
-	glog.Exit(run(plugin.New(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *pathToUnixSocket), healthz, metrics))
+	var p plugin.Plugin
+	var hc plugin.HealthChecker
+
+	switch *kmsVersion {
+	case "v1":
+		p = v1.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *pathToUnixSocket)
+		hc = plugin.NewHealthChecker(*keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
+			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
+			Path: *healthzPath,
+		})
+		glog.Info("Kubernetes KMS API v1beta1")
+	default:
+		p = v2.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *keySuffix, *pathToUnixSocket)
+		hc = plugin.NewHealthChecker(*keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
+			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
+			Path: *healthzPath,
+		})
+		glog.Info("Kubernetes KMS API v2")
+	}
+	glog.Exit(run(p, hc, metrics))
 }
 
-func run(p *plugin.Plugin, h *plugin.HealthZ, m *plugin.Metrics) error {
+func run(p plugin.Plugin, h plugin.HealthChecker, m *plugin.Metrics) error {
 	signalsChan := make(chan os.Signal, 1)
 	signal.Notify(signalsChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -131,6 +143,9 @@ func run(p *plugin.Plugin, h *plugin.HealthZ, m *plugin.Metrics) error {
 }
 
 func mustValidateFlags() {
+	if *kmsVersion == "v1" && *keySuffix != "" {
+		glog.Exitf("--key-suffix argument cannot be used in v1 mode (--kms=v1)")
+	}
 	glog.Infof("Checking socket path %q", *pathToUnixSocket)
 	socketDir := filepath.Dir(*pathToUnixSocket)
 	glog.Infof("Unix Socket directory is %q", socketDir)
