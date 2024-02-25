@@ -14,12 +14,12 @@
 
 steps:
 - id: test
-  name: golang:1.13
+  name: golang:1.22
   entrypoint: make
   args: ['test-acc']
 
 - id: build
-  name: golang:1.13
+  name: golang:1.22
   entrypoint: make
   args: ['build']
   waitFor: ['test']

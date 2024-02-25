@@ -13,11 +13,11 @@
 # limitations under the License.
 
 export GO111MODULE = on
-export GOFLAGS = -mod=vendor
 
 # build
 build:
 	@GOOS=linux GOARCH=amd64 go build \
+		-trimpath \
 	  -a \
 		-ldflags "-s -w -extldflags 'static'"  \
 		-installsuffix cgo \
@@ -26,11 +26,10 @@ build:
 		./cmd/k8s-cloudkms-plugin/...
 .PHONY: build
 
-# deps updates all dependencies to their latest version and vendors the changes
+# deps updates all dependencies to their latest version
 deps:
-	@go get -u -mod="" ./...
+	@go get -u all ./...
 	@go mod tidy
-	@go mod vendor
 .PHONY: deps
 
 # dev installs the plugin for local development
@@ -40,10 +39,10 @@ dev:
 
 # test runs the tests
 test:
-	@go test -short -parallel=40 ./...
+	@go test -shuffle=on -short ./...
 .PHONY: test
 
 # test runs the tests, including integration tests
 test-acc:
-	@go test -parallel=40 -count=1 ./...
+	@go test -count=1 -shuffle=on -race ./...
 .PHONY: test-acc
