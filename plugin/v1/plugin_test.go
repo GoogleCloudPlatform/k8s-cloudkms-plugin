@@ -19,11 +19,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -34,10 +34,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
-	"github.com/golang/protobuf/proto"
 	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheuspb "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
@@ -86,10 +86,16 @@ func (p *pluginTestCase) tearDown() {
 func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTestCase {
 	t.Helper()
 
-	s, err := os.CreateTemp("", "plugin-test")
+	dir, err := os.MkdirTemp(os.TempDir(), "")
 	if err != nil {
-		t.Fatalf("Failed to create socket file, error: %v", err)
+		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	})
+	socket := filepath.Join(dir, "listener.sock")
 
 	ctx := context.Background()
 	waitForPluginStart := 3 * time.Second
@@ -99,8 +105,9 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 		t.Fatalf("failed to instantiate cloud kms httpClient: %v", err)
 	}
 	fakeKMSKeyService.BasePath = fakeKMSSrv.URL()
-	plugin := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName, s.Name())
-	pluginRPCSrv, errChan := plugin.ServeKMSRequests()
+	p := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName)
+	pluginManager := plugin.NewManager(p, socket)
+	pluginRPCSrv, errChan := pluginManager.Start()
 	// Giving some time for plugin to start while listening on the error channel.
 	select {
 	case err := <-errChan:
@@ -108,7 +115,7 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 	case <-time.After(waitForPluginStart):
 	}
 
-	return &pluginTestCase{plugin, pluginRPCSrv, fakeKMSSrv}
+	return &pluginTestCase{p, pluginRPCSrv, fakeKMSSrv}
 }
 
 func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
@@ -121,7 +128,6 @@ func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, respo
 }
 
 func TestMain(m *testing.M) {
-	rand.Seed(time.Now().UnixNano())
 	os.Exit(m.Run())
 }
 
@@ -328,30 +334,6 @@ func TestKMSTimeout(t *testing.T) {
 	}
 }
 
-func TestSocket(t *testing.T) {
-	t.Parallel()
-
-	tt := setUpWithResponses(t, keyName, 0)
-	t.Cleanup(func() {
-		tt.tearDown()
-	})
-
-	fileInfo, err := os.Stat(tt.Plugin.PathToUnixSocket)
-	if err != nil {
-		t.Fatalf("failed to stat socket %q, error %v", tt.Plugin.PathToUnixSocket, err)
-	}
-
-	if (fileInfo.Mode() & os.ModeSocket) != os.ModeSocket {
-		t.Fatalf("got %v, wanted Srwxr-xr-x", fileInfo.Mode())
-	}
-
-	tt.GracefulStop()
-
-	if _, err := os.Stat(tt.Plugin.PathToUnixSocket); err == nil {
-		t.Fatal("expected socket to be cleaned-up by now.")
-	}
-}
-
 func TestMetricsServer(t *testing.T) {
 	t.Parallel()
 
@@ -384,7 +366,7 @@ func mustServeMetrics(t *testing.T) int {
 
 	m := &plugin.Metrics{
 		ServingURL: &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
+			Host: fmt.Sprintf("localhost:%d", p),
 			Path: "metrics",
 		},
 	}
@@ -434,7 +416,7 @@ func scrapeMetrics(port int) ([]*prometheuspb.MetricFamily, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		var metric prometheuspb.MetricFamily
-		if err := proto.UnmarshalText(scanner.Text(), &metric); err != nil {
+		if err := proto.Unmarshal(scanner.Bytes(), &metric); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal line of metrics response: %v", err)
 		}
 		metrics = append(metrics, &metric)

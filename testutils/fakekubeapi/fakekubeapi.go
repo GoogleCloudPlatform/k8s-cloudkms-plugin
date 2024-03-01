@@ -146,7 +146,7 @@ func (f *Server) recordSecretPut(s corev1.Secret) {
 }
 
 func (f *Server) processPut(r *http.Request, w http.ResponseWriter) {
-	ctx, cancel := context.WithTimeout(context.Background(), f.timeout)
+	ctx, cancel := context.WithTimeout(r.Context(), f.timeout)
 	defer cancel()
 
 	glog.Infof("Processing PUT request %v", r)

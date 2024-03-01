@@ -19,13 +19,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -57,6 +55,10 @@ var (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	flag.Parse()
 	mustValidateFlags()
 
@@ -69,13 +71,12 @@ func main() {
 		// httpClient should be constructed with context.Background. Sending a context with
 		// timeout or deadline will cause subsequent calls via the client to fail once the timeout or
 		// deadline is triggered. Instead, the plugin supplies a context per individual calls.
-		httpClient, err = plugin.NewHTTPClient(context.Background(), *gceConf)
+		httpClient, err = plugin.NewHTTPClient(ctx, *gceConf)
 		if err != nil {
 			glog.Exitf("failed to instantiate http httpClient: %v", err)
 		}
 	}
 
-	ctx := context.Background()
 	kms, err := cloudkms.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		glog.Exitf("failed to instantiate cloud kms httpClient: %v", err)
@@ -87,57 +88,60 @@ func main() {
 
 	metrics := &plugin.Metrics{
 		ServingURL: &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*metricsPort), 10)),
+			Host: fmt.Sprintf("localhost:%d", *metricsPort),
 			Path: *metricsPath,
 		},
 	}
 
 	var p plugin.Plugin
-	var hc plugin.HealthChecker
-
+	var healthChecker plugin.HealthChecker
 	switch *kmsVersion {
 	case "v1":
-		p = v1.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *pathToUnixSocket)
-		hc = plugin.NewHealthChecker(*keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
-			Path: *healthzPath,
-		})
+		p = v1.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI)
+		healthChecker = v1.NewHealthChecker()
 		glog.Info("Kubernetes KMS API v1beta1")
-	default:
-		p = v2.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *keySuffix, *pathToUnixSocket)
-		hc = plugin.NewHealthChecker(*keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(*healthzPort), 10)),
-			Path: *healthzPath,
-		})
+	case "v2":
+		p = v2.NewPlugin(kms.Projects.Locations.KeyRings.CryptoKeys, *keyURI, *keySuffix)
+		healthChecker = v2.NewHealthChecker()
 		glog.Info("Kubernetes KMS API v2")
+	default:
+		glog.Exitf("invalid value %q for --kms", *kmsVersion)
 	}
-	glog.Exit(run(p, hc, metrics))
+
+	hc := plugin.NewHealthChecker(healthChecker, *keyURI, kms.Projects.Locations.KeyRings.CryptoKeys, *pathToUnixSocket, *healthzTimeout, &url.URL{
+		Host: fmt.Sprintf("localhost:%d", *healthzPort),
+		Path: *healthzPath,
+	})
+
+	pluginManager := plugin.NewManager(p, *pathToUnixSocket)
+
+	glog.Exit(run(pluginManager, hc, metrics))
 }
 
-func run(p plugin.Plugin, h plugin.HealthChecker, m *plugin.Metrics) error {
+func run(pluginManager *plugin.PluginManager, h *plugin.HealthCheckerManager, m *plugin.Metrics) error {
 	signalsChan := make(chan os.Signal, 1)
 	signal.Notify(signalsChan, syscall.SIGINT, syscall.SIGTERM)
 
-	metricsErrChan := m.Serve()
-	healthzErrChan := h.Serve()
+	metricsErrCh := m.Serve()
+	healthzErrCh := h.Serve()
 
-	gRPCSrv, kmsErrorChan := p.ServeKMSRequests()
+	gRPCSrv, kmsErrorCh := pluginManager.Start()
 	defer gRPCSrv.GracefulStop()
 
 	for {
 		select {
 		case sig := <-signalsChan:
 			return fmt.Errorf("captured %v, shutting down kms-plugin", sig)
-		case kmsError := <-kmsErrorChan:
+		case kmsError := <-kmsErrorCh:
 			return kmsError
-		case metricsErr := <-metricsErrChan:
+		case metricsErr := <-metricsErrCh:
 			// Limiting this to warning only - will run without metrics.
 			glog.Warning(metricsErr)
-			metricsErrChan = nil
-		case healthzErr := <-healthzErrChan:
+			metricsErrCh = nil
+		case healthzErr := <-healthzErrCh:
 			// Limiting this to warning only - will run without healthz.
 			glog.Warning(healthzErr)
-			healthzErrChan = nil
+			healthzErrCh = nil
 		}
 	}
 }

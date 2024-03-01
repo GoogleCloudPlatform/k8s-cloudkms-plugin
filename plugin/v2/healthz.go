@@ -15,77 +15,51 @@
 package v2
 
 import (
-	"net/url"
-	"time"
-
 	"context"
 	"fmt"
 
-	kmspb "google.golang.org/api/cloudkms/v1"
-	grpc "google.golang.org/grpc"
-
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
-
-	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	grpc "google.golang.org/grpc"
 )
 
-type HealthZ struct {
-	*plugin.HealthZ
+var _ plugin.HealthChecker = (*HealthChecker)(nil)
+
+type HealthChecker struct{}
+
+func NewHealthChecker() *HealthChecker {
+	return &HealthChecker{}
 }
 
-func NewHealthChecker(keyName string, keyService *kmspb.ProjectsLocationsKeyRingsCryptoKeysService,
-	unixSocketPath string, callTimeout time.Duration, servingURL *url.URL) *HealthZ {
+func (h *HealthChecker) PingRPC(ctx context.Context, conn *grpc.ClientConn) error {
+	client := NewKeyManagementServiceClient(conn)
 
-	hz := &HealthZ{
-		HealthZ: &plugin.HealthZ{
-			KeyName:        keyName,
-			KeyService:     keyService,
-			UnixSocketPath: unixSocketPath,
-			CallTimeout:    callTimeout,
-			ServingURL:     servingURL,
-		},
-	}
-	hz.HealthZ.HealthChecker = hz
-	return hz
-}
-
-func (h *HealthZ) PingRPC(ctx context.Context, keyManagementServiceClient any) error {
-	var c KeyManagementServiceClient = keyManagementServiceClient.(KeyManagementServiceClient)
-
-	r := &StatusRequest{}
-	if _, err := c.Status(ctx, r); err != nil {
-		return fmt.Errorf("failed to retrieve version from gRPC endpoint:%s, error: %v", h.UnixSocketPath, err)
+	if _, err := client.Status(ctx, &StatusRequest{}); err != nil {
+		return fmt.Errorf("failed to retrieve version from gRPC endpoint: %w", err)
 	}
 
-	glog.V(4).Infof("Successfully pinged gRPC via %s", h.UnixSocketPath)
+	glog.V(4).Infof("Successfully pinged gRPC")
 	return nil
 }
 
-func (h *HealthZ) PingKMS(ctx context.Context, keyManagementServiceClient any) error {
-	var c KeyManagementServiceClient = keyManagementServiceClient.(KeyManagementServiceClient)
+func (h *HealthChecker) PingKMS(ctx context.Context, conn *grpc.ClientConn) error {
+	client := NewKeyManagementServiceClient(conn)
 
-	plainText := []byte("secret")
-
-	encryptResponse, err := c.Encrypt(ctx, &EncryptRequest{
+	encryptResponse, err := client.Encrypt(ctx, &EncryptRequest{
 		Uid:       uuid.NewString(),
-		Plaintext: []byte(plainText),
+		Plaintext: []byte("secret"),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to ping KMS: %v", err)
+		return fmt.Errorf("failed to ping KMS: %w", err)
 	}
 
-	_, err = c.Decrypt(context.Background(), &DecryptRequest{
+	if _, err = client.Decrypt(ctx, &DecryptRequest{
 		Uid:        uuid.NewString(),
 		Ciphertext: []byte(encryptResponse.Ciphertext),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to ping KMS: %v", err)
+	}); err != nil {
+		return fmt.Errorf("failed to ping KMS: %w", err)
 	}
 
 	return nil
-}
-
-func (h *HealthZ) NewKeyManagementServiceClient(cc *grpc.ClientConn) any {
-	return NewKeyManagementServiceClient(cc)
 }

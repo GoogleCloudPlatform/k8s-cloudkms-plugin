@@ -59,7 +59,7 @@ func NewHTTPClient(ctx context.Context, pathToGCEConf string) (*http.Client, err
 
 		// Running on GKE Hosted Master
 		glog.Infof("TokenURI:%s, TokenBody:%s - assuming that running on a Hosted Master - GKE.", c.Global.TokenURL, c.Global.TokenBody)
-		a := newAltTokenSource(c.Global.TokenURL, c.Global.TokenBody)
+		a := newAltTokenSource(ctx, c.Global.TokenURL, c.Global.TokenBody)
 
 		// TODO: Do I need to call a.Token to get access token here?
 		if _, err := a.Token(); err != nil {

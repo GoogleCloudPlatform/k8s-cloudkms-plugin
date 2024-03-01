@@ -16,10 +16,13 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -138,21 +141,27 @@ func mustServeHealthz(t *testing.T, tt *pluginTestCase) int {
 		t.Fatalf("Failed to allocate a free port for healthz server, err: %v", err)
 	}
 
-	h := &HealthZ{
-		HealthZ: &plugin.HealthZ{
-			KeyName:        tt.KeyURI,
-			KeyService:     tt.KeyService,
-			UnixSocketPath: tt.Plugin.PathToUnixSocket,
-			CallTimeout:    5 * time.Second,
-			ServingURL: &url.URL{
-				Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
-				Path: "healthz",
-			},
-		},
+	u := &url.URL{
+		Host: fmt.Sprintf("localhost:%d", p),
+		Path: "healthz",
 	}
-	h.HealthZ.HealthChecker = h
 
-	c := h.Serve()
+	dir, err := os.MkdirTemp(os.TempDir(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	})
+	socket := filepath.Join(dir, "listener.sock")
+
+	healthChecker := NewHealthChecker()
+	healthCheckerManager := plugin.NewHealthChecker(healthChecker, tt.keyURI, tt.keyService, socket, 5*time.Second, u)
+
+	c := healthCheckerManager.Serve()
+
 	// Giving some time for healthz server to start while listening on the error channel.
 	select {
 	case err := <-c:

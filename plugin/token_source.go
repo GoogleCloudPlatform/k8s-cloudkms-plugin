@@ -60,8 +60,7 @@ func (a *altTokenSource) Token() (*oauth2.Token, error) {
 }
 
 // newAltTokenSource constructs a new alternate token source for generating tokens.
-func newAltTokenSource(tokenURL, tokenBody string) oauth2.TokenSource {
-	ctx := context.Background()
+func newAltTokenSource(ctx context.Context, tokenURL, tokenBody string) oauth2.TokenSource {
 	return &altTokenSource{
 		oauthClient: oauth2.NewClient(ctx, google.ComputeTokenSource("")),
 		tokenURL:    tokenURL,

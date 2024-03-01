@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	kmspb "google.golang.org/api/cloudkms/v1"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"net"
@@ -31,85 +32,78 @@ import (
 	"google.golang.org/grpc"
 )
 
-// HealthZ types that encapsulates healthz functionality of kms-plugin.
+// HealthCheckerManager types that encapsulates healthz functionality of kms-plugin.
 // The following health checks are performed:
 // 1. Getting version of the plugin - validates gRPC connectivity.
 // 2. Asserting that the caller has encrypt and decrypt permissions on the crypto key.
-type HealthZ struct {
-	HealthChecker
-	KeyName        string
+type HealthCheckerManager struct {
+	keyName        string
 	KeyService     *kmspb.ProjectsLocationsKeyRingsCryptoKeysService
-	UnixSocketPath string
-	CallTimeout    time.Duration
-	ServingURL     *url.URL
+	unixSocketPath string
+	callTimeout    time.Duration
+	servingURL     *url.URL
+
+	plugin HealthChecker
 }
 
 type HealthChecker interface {
-	Serve() chan error
-	HandlerFunc(w http.ResponseWriter, r *http.Request)
-	NewKeyManagementServiceClient(*grpc.ClientConn) any
-	PingRPC(ctx context.Context, c any) error
-	TestIAMPermissions() error
-	PingKMS(ctx context.Context, c any) error
+	PingRPC(context.Context, *grpc.ClientConn) error
+	PingKMS(context.Context, *grpc.ClientConn) error
 }
 
-func NewHealthChecker(keyName string, keyService *kmspb.ProjectsLocationsKeyRingsCryptoKeysService,
-	unixSocketPath string, callTimeout time.Duration, servingURL *url.URL) *HealthZ {
+func NewHealthChecker(plugin HealthChecker, keyName string, keyService *kmspb.ProjectsLocationsKeyRingsCryptoKeysService,
+	unixSocketPath string, callTimeout time.Duration, servingURL *url.URL) *HealthCheckerManager {
 
-	return &HealthZ{
-		KeyName:        keyName,
+	return &HealthCheckerManager{
+		keyName:        keyName,
 		KeyService:     keyService,
-		UnixSocketPath: unixSocketPath,
-		CallTimeout:    callTimeout,
-		ServingURL:     servingURL,
+		unixSocketPath: unixSocketPath,
+		callTimeout:    callTimeout,
+		servingURL:     servingURL,
 	}
-
 }
 
 // Serve creates http server for hosting healthz.
-func (h *HealthZ) Serve() chan error {
+func (m *HealthCheckerManager) Serve() chan error {
 	errorCh := make(chan error)
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", h.ServingURL.EscapedPath()), h.HandlerFunc)
+	mux.HandleFunc(fmt.Sprintf("/%s", m.servingURL.EscapedPath()), m.HandlerFunc)
 
 	go func() {
 		defer close(errorCh)
-		glog.Infof("Registering healthz listener at %v", h.ServingURL)
+		glog.Infof("Registering healthz listener at %v", m.servingURL)
 		select {
-		case errorCh <- http.ListenAndServe(h.ServingURL.Host, mux):
+		case errorCh <- http.ListenAndServe(m.servingURL.Host, mux):
 		default:
 		}
-
 	}()
 
 	return errorCh
 }
 
-func (h *HealthZ) HandlerFunc(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), h.CallTimeout)
+func (m *HealthCheckerManager) HandlerFunc(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), m.callTimeout)
 	defer cancel()
 
-	connection, err := DialUnix(h.UnixSocketPath)
+	conn, err := dialUnix(m.unixSocketPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	defer connection.Close()
+	defer conn.Close()
 
-	c := h.NewKeyManagementServiceClient(connection)
-
-	if err := h.PingRPC(ctx, c); err != nil {
+	if err := m.plugin.PingRPC(ctx, conn); err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 
-	if err := h.TestIAMPermissions(); err != nil {
+	if err := m.TestIAMPermissions(); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
 	if r.FormValue("ping-kms") == "true" {
-		if err := h.PingKMS(ctx, c); err != nil {
+		if err := m.plugin.PingKMS(ctx, conn); err != nil {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
@@ -119,7 +113,7 @@ func (h *HealthZ) HandlerFunc(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-func (h *HealthZ) TestIAMPermissions() error {
+func (h *HealthCheckerManager) TestIAMPermissions() error {
 	want := sets.NewString("cloudkms.cryptoKeyVersions.useToEncrypt", "cloudkms.cryptoKeyVersions.useToDecrypt")
 	glog.Infof("Testing IAM permissions, want %v", want.List())
 
@@ -127,28 +121,34 @@ func (h *HealthZ) TestIAMPermissions() error {
 		Permissions: want.List(),
 	}
 
-	resp, err := h.KeyService.TestIamPermissions(h.KeyName, req).Do()
+	resp, err := h.KeyService.TestIamPermissions(h.keyName, req).Do()
 	if err != nil {
-		return fmt.Errorf("failed to test IAM Permissions on %s, %v", h.KeyName, err)
+		return fmt.Errorf("failed to test IAM Permissions on %s, %v", h.keyName, err)
 	}
-	glog.Infof("Got permissions: %v from CloudKMS for key:%s", resp.Permissions, h.KeyName)
+	glog.Infof("Got permissions: %v from CloudKMS for key:%s", resp.Permissions, h.keyName)
 
 	got := sets.NewString(resp.Permissions...)
 	diff := want.Difference(got)
 
 	if diff.Len() != 0 {
-		glog.Errorf("Failed to validate IAM Permissions on %s, diff: %v", h.KeyName, diff)
-		return fmt.Errorf("missing %v IAM permissions on CryptoKey:%s", diff, h.KeyName)
+		glog.Errorf("Failed to validate IAM Permissions on %s, diff: %v", h.keyName, diff)
+		return fmt.Errorf("missing %v IAM permissions on CryptoKey:%s", diff, h.keyName)
 	}
 
-	glog.Infof("Successfully validated IAM Permissions on %s.", h.KeyName)
+	glog.Infof("Successfully validated IAM Permissions on %s.", h.keyName)
 	return nil
 }
 
-func DialUnix(unixSocketPath string) (*grpc.ClientConn, error) {
+func dialUnix(unixSocketPath string) (*grpc.ClientConn, error) {
 	protocol, addr := "unix", unixSocketPath
-	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout(protocol, addr, timeout)
+	dialer := func(ctx context.Context, addr string) (net.Conn, error) {
+		if deadline, ok := ctx.Deadline(); ok {
+			return net.DialTimeout(protocol, addr, time.Until(deadline))
+		}
+		return net.DialTimeout(protocol, addr, 0)
 	}
-	return grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
+
+	return grpc.Dial(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(dialer))
 }

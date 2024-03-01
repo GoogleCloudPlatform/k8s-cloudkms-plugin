@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/grpc"
 )
 
@@ -30,68 +29,73 @@ const (
 	netProtocol = "unix"
 )
 
-type AbstractPlugin struct {
-	Plugin
-	KeyService       *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
-	KeyURI           string
-	KeySuffix        string
-	PathToUnixSocket string
-	// Embedding these only to shorten access to fields.
-	net.Listener
-	*grpc.Server
-}
-
 // Plugin is a CloudKMS plugin for K8S.
 type Plugin interface {
-	// Starts gRPC server or dies.
-	ServeKMSRequests() (*grpc.Server, chan error)
-	RegisterKeyManagementServiceServer()
+	Register(s *grpc.Server)
+}
+
+type PluginManager struct {
+	unixSocketFilePath string
+
+	// Embedding these only to shorten access to fields.
+	net.Listener
+	server *grpc.Server
+
+	plugin Plugin
+}
+
+// NewManager creates a new plugin manager.
+func NewManager(plugin Plugin, unixSocketFilePath string) *PluginManager {
+	return &PluginManager{
+		unixSocketFilePath: unixSocketFilePath,
+		plugin:             plugin,
+	}
 }
 
 // ServeKMSRequests starts gRPC server or dies.
-func (g *AbstractPlugin) ServeKMSRequests() (*grpc.Server, chan error) {
-	errorChan := make(chan error, 1)
-	if err := g.setupRPCServer(); err != nil {
-		errorChan <- err
-		close(errorChan)
-		return nil, errorChan
+func (m *PluginManager) Start() (*grpc.Server, <-chan error) {
+	errCh := make(chan error, 1)
+	sendError := func(err error) {
+		defer close(errCh)
+		select {
+		case errCh <- err:
+		default:
+		}
 	}
+
+	if err := m.cleanSockFile(); err != nil {
+		sendError(fmt.Errorf("failed to cleanup socket file: %w", err))
+		return nil, errCh
+	}
+
+	listener, err := net.Listen(netProtocol, m.unixSocketFilePath)
+	if err != nil {
+		sendError(fmt.Errorf("failed to create listener: %w", err))
+		return nil, errCh
+	}
+	m.Listener = listener
+	glog.Infof("Listening on unix domain socket: %s", m.unixSocketFilePath)
+
+	m.server = grpc.NewServer()
+	m.plugin.Register(m.server)
 
 	go func() {
-		defer close(errorChan)
-		errorChan <- g.Serve(g.Listener)
+		defer m.cleanSockFile()
+		sendError(m.server.Serve(m.Listener))
 	}()
 
-	return g.Server, errorChan
+	return m.server, errCh
 }
 
-func (g *AbstractPlugin) setupRPCServer() error {
-	if err := g.cleanSockFile(); err != nil {
-		return err
-	}
-
-	listener, err := net.Listen(netProtocol, g.PathToUnixSocket)
-	if err != nil {
-		return fmt.Errorf("failed to start listener, error: %v", err)
-	}
-	g.Listener = listener
-	glog.Infof("Listening on unix domain socket: %s", g.PathToUnixSocket)
-
-	g.Server = grpc.NewServer()
-	g.RegisterKeyManagementServiceServer()
-
-	return nil
-}
-
-func (g *AbstractPlugin) cleanSockFile() error {
+func (m *PluginManager) cleanSockFile() error {
 	// @ implies the use of Linux socket namespace - no file on disk and nothing to clean-up.
-	if strings.HasPrefix(g.PathToUnixSocket, "@") {
+	if strings.HasPrefix(m.unixSocketFilePath, "@") {
 		return nil
 	}
 
-	err := os.Remove(g.PathToUnixSocket)
+	err := os.Remove(m.unixSocketFilePath)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete the socket file, error: %v", err)
+		return fmt.Errorf("failed to delete the socket file, error: %w", err)
 	}
 	return nil
 }

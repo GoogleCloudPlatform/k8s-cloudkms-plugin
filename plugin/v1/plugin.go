@@ -24,6 +24,7 @@ import (
 	"github.com/golang/glog"
 
 	"google.golang.org/api/cloudkms/v1"
+	grpc "google.golang.org/grpc"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
@@ -34,21 +35,25 @@ const (
 	runtimeVersion = "0.0.1"
 )
 
+var _ plugin.Plugin = (*Plugin)(nil)
+
+// Plugin is the v1 implementation of a plugin.
 type Plugin struct {
-	*plugin.AbstractPlugin
+	keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService
+	keyURI     string
 }
 
-// New constructs Plugin.
-func NewPlugin(keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService, keyURI, pathToUnixSocketFile string) *Plugin {
-	p := &Plugin{
-		AbstractPlugin: &plugin.AbstractPlugin{
-			KeyService:       keyService,
-			KeyURI:           keyURI,
-			PathToUnixSocket: pathToUnixSocketFile,
-		},
+// NewPlugin creates a new v1 plugin
+func NewPlugin(keyService *cloudkms.ProjectsLocationsKeyRingsCryptoKeysService, keyURI string) *Plugin {
+	return &Plugin{
+		keyService: keyService,
+		keyURI:     keyURI,
 	}
-	p.AbstractPlugin.Plugin = p
-	return p
+}
+
+// Register registers the plugin as a service management service.
+func (g *Plugin) Register(s *grpc.Server) {
+	RegisterKeyManagementServiceServer(s, g)
 }
 
 // Version returns the version of KMS Plugin.
@@ -63,11 +68,11 @@ func (g *Plugin) Version(ctx context.Context, request *VersionRequest) (*Version
 // Encrypt encrypts payload provided by K8S API Server.
 func (g *Plugin) Encrypt(ctx context.Context, request *EncryptRequest) (*EncryptResponse, error) {
 	glog.V(4).Infoln("Processing request for encryption.")
-	// TODO(immutablet) check the version of the request and issue a warning if the version is not what the plugin expects.
 	defer plugin.RecordCloudKMSOperation("encrypt", time.Now().UTC())
 
-	req := &cloudkms.EncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Plain)}
-	resp, err := g.KeyService.Encrypt(g.KeyURI, req).Context(ctx).Do()
+	resp, err := g.keyService.Encrypt(g.keyURI, &cloudkms.EncryptRequest{
+		Plaintext: base64.StdEncoding.EncodeToString(request.Plain),
+	}).Context(ctx).Do()
 	if err != nil {
 		plugin.CloudKMSOperationalFailuresTotal.WithLabelValues("encrypt").Inc()
 		return nil, err
@@ -78,19 +83,19 @@ func (g *Plugin) Encrypt(ctx context.Context, request *EncryptRequest) (*Encrypt
 		return nil, err
 	}
 
-	return &EncryptResponse{Cipher: []byte(cipher)}, nil
+	return &EncryptResponse{
+		Cipher: cipher,
+	}, nil
 }
 
 // Decrypt decrypts payload supplied by K8S API Server.
 func (g *Plugin) Decrypt(ctx context.Context, request *DecryptRequest) (*DecryptResponse, error) {
 	glog.V(4).Infoln("Processing request for decryption.")
-	// TODO(immutableT) check the version of the request and issue a warning if the version is not what the plugin expects.
 	defer plugin.RecordCloudKMSOperation("decrypt", time.Now().UTC())
 
-	req := &cloudkms.DecryptRequest{
+	resp, err := g.keyService.Decrypt(g.keyURI, &cloudkms.DecryptRequest{
 		Ciphertext: base64.StdEncoding.EncodeToString(request.Cipher),
-	}
-	resp, err := g.KeyService.Decrypt(g.KeyURI, req).Context(ctx).Do()
+	}).Context(ctx).Do()
 	if err != nil {
 		plugin.CloudKMSOperationalFailuresTotal.WithLabelValues("decrypt").Inc()
 		return nil, err
@@ -98,12 +103,10 @@ func (g *Plugin) Decrypt(ctx context.Context, request *DecryptRequest) (*Decrypt
 
 	plain, err := base64.StdEncoding.DecodeString(resp.Plaintext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode from base64, error: %v", err)
+		return nil, fmt.Errorf("failed to decode from base64, error: %w", err)
 	}
 
-	return &DecryptResponse{Plain: []byte(plain)}, nil
-}
-
-func (g *Plugin) RegisterKeyManagementServiceServer() {
-	RegisterKeyManagementServiceServer(g.Server, g)
+	return &DecryptResponse{
+		Plain: plain,
+	}, nil
 }
