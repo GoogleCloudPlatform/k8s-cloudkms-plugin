@@ -35,7 +35,7 @@ func (h *HealthChecker) PingRPC(ctx context.Context, conn *grpc.ClientConn) erro
 	client := NewKeyManagementServiceClient(conn)
 
 	if _, err := client.Version(ctx, &VersionRequest{
-		Version: "v1beta1",
+		Version: apiVersion,
 	}); err != nil {
 		return fmt.Errorf("failed to retrieve version from gRPC endpoint: %w", err)
 	}

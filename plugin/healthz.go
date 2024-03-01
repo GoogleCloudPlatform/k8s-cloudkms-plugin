@@ -60,6 +60,7 @@ func NewHealthChecker(plugin HealthChecker, keyName string, keyService *kmspb.Pr
 		unixSocketPath: unixSocketPath,
 		callTimeout:    callTimeout,
 		servingURL:     servingURL,
+		plugin:         plugin,
 	}
 }
 

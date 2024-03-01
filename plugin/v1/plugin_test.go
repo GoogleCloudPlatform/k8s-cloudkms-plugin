@@ -34,10 +34,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
+	"github.com/golang/protobuf/proto"
 	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheuspb "github.com/prometheus/client_model/go"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 )
@@ -73,7 +73,8 @@ var (
 )
 
 type pluginTestCase struct {
-	*Plugin
+	plugin       *Plugin
+	socket       string
 	pluginRPCSrv *grpc.Server
 	fakeKMSSrv   *fakekms.Server
 }
@@ -86,6 +87,8 @@ func (p *pluginTestCase) tearDown() {
 func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTestCase {
 	t.Helper()
 
+	ctx := context.Background()
+
 	dir, err := os.MkdirTemp(os.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +100,6 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 	})
 	socket := filepath.Join(dir, "listener.sock")
 
-	ctx := context.Background()
 	waitForPluginStart := 3 * time.Second
 	fakeKMSKeyService, err := cloudkms.NewService(ctx,
 		option.WithHTTPClient(fakeKMSSrv.Client()))
@@ -108,6 +110,7 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 	p := NewPlugin(fakeKMSKeyService.Projects.Locations.KeyRings.CryptoKeys, keyName)
 	pluginManager := plugin.NewManager(p, socket)
 	pluginRPCSrv, errChan := pluginManager.Start()
+
 	// Giving some time for plugin to start while listening on the error channel.
 	select {
 	case err := <-errChan:
@@ -115,7 +118,12 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string) *pluginTest
 	case <-time.After(waitForPluginStart):
 	}
 
-	return &pluginTestCase{p, pluginRPCSrv, fakeKMSSrv}
+	return &pluginTestCase{
+		plugin:       p,
+		pluginRPCSrv: pluginRPCSrv,
+		fakeKMSSrv:   fakeKMSSrv,
+		socket:       socket,
+	}
 }
 
 func setUpWithResponses(t *testing.T, keyName string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
@@ -175,7 +183,7 @@ func TestEncrypt(t *testing.T) {
 				tt.tearDown()
 			})
 
-			testCase.testFn(t, tt.Plugin)
+			testCase.testFn(t, tt.plugin)
 
 			if err := tt.fakeKMSSrv.EncryptRequestsEqual(testCase.wantEncryptRequests); err != nil {
 				t.Fatalf("Failed to compare last processed request on KMS Server, error: %v", err)
@@ -270,7 +278,7 @@ func TestGatherMetrics(t *testing.T) {
 			t.Cleanup(func() {
 				tt.tearDown()
 			})
-			testCase.testFn(t, tt.Plugin)
+			testCase.testFn(t, tt.plugin)
 
 			got, err := prometheus.DefaultGatherer.Gather()
 			if err != nil {
@@ -329,7 +337,7 @@ func TestKMSTimeout(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(context.Background(), testCase.pluginTimeout)
 			defer cancel()
-			testCase.testFn(ctx, t, tt.Plugin)
+			testCase.testFn(ctx, t, tt.plugin)
 		})
 	}
 }
@@ -346,7 +354,7 @@ func TestMetricsServer(t *testing.T) {
 	})
 
 	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte("foo")}
-	if _, err := tt.Plugin.Encrypt(ctx, &encryptRequest); err != nil {
+	if _, err := tt.plugin.Encrypt(ctx, &encryptRequest); err != nil {
 		t.Fatalf("Failed to submit encrypt request to plugin, error %v", err)
 	}
 
@@ -359,6 +367,8 @@ func TestMetricsServer(t *testing.T) {
 
 func mustServeMetrics(t *testing.T) int {
 	t.Helper()
+
+	// TODO(sethvargo): switch to using port 0
 	p, err := freeport.GetFreePort()
 	if err != nil {
 		t.Fatalf("Failed to allocate a free port for metrics server, err: %v", err)
@@ -372,7 +382,9 @@ func mustServeMetrics(t *testing.T) int {
 	}
 
 	c := m.Serve()
-	// Giving some time for metrics server to start while listening on the error channel.
+
+	// Giving some time for metrics server to start while listening on the error
+	// channel.
 	select {
 	case err := <-c:
 		t.Fatalf("received an error while starting metrics server, error channel: %v", err)
@@ -416,7 +428,7 @@ func scrapeMetrics(port int) ([]*prometheuspb.MetricFamily, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		var metric prometheuspb.MetricFamily
-		if err := proto.Unmarshal(scanner.Bytes(), &metric); err != nil {
+		if err := proto.UnmarshalText(scanner.Text(), &metric); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal line of metrics response: %v", err)
 		}
 		metrics = append(metrics, &metric)

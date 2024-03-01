@@ -35,10 +35,10 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/testutils/fakekms"
+	"github.com/golang/protobuf/proto"
 	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheuspb "github.com/prometheus/client_model/go"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -76,9 +76,10 @@ var (
 )
 
 type pluginTestCase struct {
-	*Plugin
+	plugin       *Plugin
 	pluginRPCSrv *grpc.Server
 	fakeKMSSrv   *fakekms.Server
+	socket       string
 }
 
 func (p *pluginTestCase) tearDown() {
@@ -118,7 +119,12 @@ func setUp(t *testing.T, fakeKMSSrv *fakekms.Server, keyName string, keySuffix s
 	case <-time.After(waitForPluginStart):
 	}
 
-	return &pluginTestCase{p, pluginRPCSrv, fakeKMSSrv}
+	return &pluginTestCase{
+		plugin:       p,
+		pluginRPCSrv: pluginRPCSrv,
+		fakeKMSSrv:   fakeKMSSrv,
+		socket:       socket,
+	}
 }
 
 func setUpWithResponses(t *testing.T, keyName string, keySuffix string, delay time.Duration, responses ...json.Marshaler) *pluginTestCase {
@@ -203,7 +209,7 @@ func TestEncrypt(t *testing.T) {
 				tt.tearDown()
 			})
 
-			testCase.testFn(t, tt.Plugin)
+			testCase.testFn(t, tt.plugin)
 
 			if err := tt.fakeKMSSrv.EncryptRequestsEqual(testCase.wantEncryptRequests); err != nil {
 				t.Fatalf("Failed to compare last processed request on KMS Server, error: %v", err)
@@ -299,7 +305,7 @@ func TestGatherMetrics(t *testing.T) {
 			t.Cleanup(func() {
 				tt.tearDown()
 			})
-			testCase.testFn(t, tt.Plugin)
+			testCase.testFn(t, tt.plugin)
 
 			got, err := prometheus.DefaultGatherer.Gather()
 			if err != nil {
@@ -363,7 +369,7 @@ func TestKMSTimeout(t *testing.T) {
 			t.Cleanup(func() {
 				cancel()
 			})
-			testCase.testFn(ctx, t, tt.Plugin)
+			testCase.testFn(ctx, t, tt.plugin)
 		})
 	}
 }
@@ -380,7 +386,7 @@ func TestMetricsServer(t *testing.T) {
 	})
 
 	encryptRequest := EncryptRequest{Plaintext: []byte("foo")}
-	if _, err := tt.Plugin.Encrypt(ctx, &encryptRequest); err != nil {
+	if _, err := tt.plugin.Encrypt(ctx, &encryptRequest); err != nil {
 		t.Fatalf("Failed to submit encrypt request to plugin, error %v", err)
 	}
 
@@ -450,7 +456,7 @@ func scrapeMetrics(port int) ([]*prometheuspb.MetricFamily, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		var metric prometheuspb.MetricFamily
-		if err := proto.Unmarshal(scanner.Bytes(), &metric); err != nil {
+		if err := proto.UnmarshalText(scanner.Text(), &metric); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal line of metrics response: %v", err)
 		}
 		metrics = append(metrics, &metric)

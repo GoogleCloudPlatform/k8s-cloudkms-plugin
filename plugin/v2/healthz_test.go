@@ -21,8 +21,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -148,19 +146,8 @@ func mustServeHealthz(t *testing.T, tt *pluginTestCase) int {
 		Path: "healthz",
 	}
 
-	dir, err := os.MkdirTemp(os.TempDir(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	})
-	socket := filepath.Join(dir, "listener.sock")
-
 	healthChecker := NewHealthChecker()
-	healthCheckerManager := plugin.NewHealthChecker(healthChecker, tt.keyURI, tt.keyService, socket, 5*time.Second, u)
+	healthCheckerManager := plugin.NewHealthChecker(healthChecker, tt.plugin.keyURI, tt.plugin.keyService, tt.socket, 5*time.Second, u)
 
 	c := healthCheckerManager.Serve()
 
