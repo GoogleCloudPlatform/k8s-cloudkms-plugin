@@ -15,90 +15,106 @@
 package plugin
 
 import (
-	"context"
-	"fmt"
-
-	"net"
-	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/golang/glog"
+	"context"
+	"fmt"
+
 	kmspb "google.golang.org/api/cloudkms/v1"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"net"
+	"net/http"
+
+	"github.com/golang/glog"
+	"google.golang.org/grpc"
 )
 
-// HealthZ types that encapsulates healthz functionality of kms-plugin.
+// HealthCheckerManager types that encapsulates healthz functionality of kms-plugin.
 // The following health checks are performed:
 // 1. Getting version of the plugin - validates gRPC connectivity.
 // 2. Asserting that the caller has encrypt and decrypt permissions on the crypto key.
-type HealthZ struct {
-	KeyName        string
+type HealthCheckerManager struct {
+	keyName        string
 	KeyService     *kmspb.ProjectsLocationsKeyRingsCryptoKeysService
-	UnixSocketPath string
-	CallTimeout    time.Duration
-	ServingURL     *url.URL
+	unixSocketPath string
+	callTimeout    time.Duration
+	servingURL     *url.URL
+
+	plugin HealthChecker
+}
+
+type HealthChecker interface {
+	PingRPC(context.Context, *grpc.ClientConn) error
+	PingKMS(context.Context, *grpc.ClientConn) error
+}
+
+func NewHealthChecker(plugin HealthChecker, keyName string, keyService *kmspb.ProjectsLocationsKeyRingsCryptoKeysService,
+	unixSocketPath string, callTimeout time.Duration, servingURL *url.URL) *HealthCheckerManager {
+
+	return &HealthCheckerManager{
+		keyName:        keyName,
+		KeyService:     keyService,
+		unixSocketPath: unixSocketPath,
+		callTimeout:    callTimeout,
+		servingURL:     servingURL,
+		plugin:         plugin,
+	}
 }
 
 // Serve creates http server for hosting healthz.
-func (h *HealthZ) Serve() chan error {
-	errorChan := make(chan error)
+func (m *HealthCheckerManager) Serve() chan error {
+	errorCh := make(chan error)
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", h.ServingURL.EscapedPath()), func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), h.CallTimeout)
-		defer cancel()
-
-		connection, err := dialUnix(h.UnixSocketPath)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-			return
-		}
-		defer connection.Close()
-
-		c := NewKeyManagementServiceClient(connection)
-
-		if err := h.pingRPC(ctx, c); err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-			return
-		}
-
-		if err := h.testIAMPermissions(); err != nil {
-			http.Error(w, err.Error(), http.StatusForbidden)
-			return
-		}
-
-		if r.FormValue("ping-kms") == "true" {
-			if err := h.pingKMS(ctx, c); err != nil {
-				http.Error(w, err.Error(), http.StatusServiceUnavailable)
-				return
-			}
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
+	mux.HandleFunc(fmt.Sprintf("/%s", m.servingURL.EscapedPath()), m.HandlerFunc)
 
 	go func() {
-		defer close(errorChan)
-		glog.Infof("Registering healthz listener at %v", h.ServingURL)
-		errorChan <- http.ListenAndServe(h.ServingURL.Host, mux)
+		defer close(errorCh)
+		glog.Infof("Registering healthz listener at %v", m.servingURL)
+		select {
+		case errorCh <- http.ListenAndServe(m.servingURL.Host, mux):
+		default:
+		}
 	}()
 
-	return errorChan
+	return errorCh
 }
 
-func (h *HealthZ) pingRPC(ctx context.Context, c KeyManagementServiceClient) error {
-	r := &VersionRequest{Version: "v1beta1"}
-	if _, err := c.Version(ctx, r); err != nil {
-		return fmt.Errorf("failed to retrieve version from gRPC endpoint:%s, error: %v", h.UnixSocketPath, err)
+func (m *HealthCheckerManager) HandlerFunc(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), m.callTimeout)
+	defer cancel()
+
+	conn, err := dialUnix(m.unixSocketPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer conn.Close()
+
+	if err := m.plugin.PingRPC(ctx, conn); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
 	}
 
-	glog.V(4).Infof("Successfully pinged gRPC via %s", h.UnixSocketPath)
-	return nil
+	if err := m.TestIAMPermissions(); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	if r.FormValue("ping-kms") == "true" {
+		if err := m.plugin.PingKMS(ctx, conn); err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
 }
 
-func (h *HealthZ) testIAMPermissions() error {
+func (h *HealthCheckerManager) TestIAMPermissions() error {
 	want := sets.NewString("cloudkms.cryptoKeyVersions.useToEncrypt", "cloudkms.cryptoKeyVersions.useToDecrypt")
 	glog.Infof("Testing IAM permissions, want %v", want.List())
 
@@ -106,47 +122,34 @@ func (h *HealthZ) testIAMPermissions() error {
 		Permissions: want.List(),
 	}
 
-	resp, err := h.KeyService.TestIamPermissions(h.KeyName, req).Do()
+	resp, err := h.KeyService.TestIamPermissions(h.keyName, req).Do()
 	if err != nil {
-		return fmt.Errorf("failed to test IAM Permissions on %s, %v", h.KeyName, err)
+		return fmt.Errorf("failed to test IAM Permissions on %s, %v", h.keyName, err)
 	}
-	glog.Infof("Got permissions: %v from CloudKMS for key:%s", resp.Permissions, h.KeyName)
+	glog.Infof("Got permissions: %v from CloudKMS for key:%s", resp.Permissions, h.keyName)
 
 	got := sets.NewString(resp.Permissions...)
 	diff := want.Difference(got)
 
 	if diff.Len() != 0 {
-		glog.Errorf("Failed to validate IAM Permissions on %s, diff: %v", h.KeyName, diff)
-		return fmt.Errorf("missing %v IAM permissions on CryptoKey:%s", diff, h.KeyName)
+		glog.Errorf("Failed to validate IAM Permissions on %s, diff: %v", h.keyName, diff)
+		return fmt.Errorf("missing %v IAM permissions on CryptoKey:%s", diff, h.keyName)
 	}
 
-	glog.Infof("Successfully validated IAM Permissions on %s.", h.KeyName)
-	return nil
-}
-
-func (h *HealthZ) pingKMS(ctx context.Context, c KeyManagementServiceClient) error {
-	plainText := []byte("secret")
-
-	encryptRequest := EncryptRequest{Version: apiVersion, Plain: []byte(plainText)}
-	encryptResponse, err := c.Encrypt(ctx, &encryptRequest)
-
-	if err != nil {
-		return fmt.Errorf("failed to ping KMS: %v", err)
-	}
-
-	decryptRequest := DecryptRequest{Version: apiVersion, Cipher: []byte(encryptResponse.Cipher)}
-	_, err = c.Decrypt(context.Background(), &decryptRequest)
-	if err != nil {
-		return fmt.Errorf("failed to ping KMS: %v", err)
-	}
-
+	glog.Infof("Successfully validated IAM Permissions on %s.", h.keyName)
 	return nil
 }
 
 func dialUnix(unixSocketPath string) (*grpc.ClientConn, error) {
 	protocol, addr := "unix", unixSocketPath
-	dialer := func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout(protocol, addr, timeout)
+	dialer := func(ctx context.Context, addr string) (net.Conn, error) {
+		if deadline, ok := ctx.Deadline(); ok {
+			return net.DialTimeout(protocol, addr, time.Until(deadline))
+		}
+		return net.DialTimeout(protocol, addr, 0)
 	}
-	return grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(dialer))
+
+	return grpc.Dial(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(dialer))
 }

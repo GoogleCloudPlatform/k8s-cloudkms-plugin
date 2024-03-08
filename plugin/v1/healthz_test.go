@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+package v1
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"net"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/googleapi"
 
+	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
 	"github.com/phayes/freeport"
 )
 
@@ -34,15 +34,15 @@ func TestHealthzServer(t *testing.T) {
 	t.Parallel()
 
 	var (
-		//positiveTestIAMResponse = &cloudkms.TestIamPermissionsResponse{
-		//	Permissions: []string{
-		//		"cloudkms.cryptoKeyVersions.useToDecrypt",
-		//		"cloudkms.cryptoKeyVersions.useToEncrypt",
-		//	},
-		//	ServerResponse: googleapi.ServerResponse{
-		//		HTTPStatusCode: http.StatusOK,
-		//	},
-		//}
+		positiveTestIAMResponse = &cloudkms.TestIamPermissionsResponse{
+			Permissions: []string{
+				"cloudkms.cryptoKeyVersions.useToDecrypt",
+				"cloudkms.cryptoKeyVersions.useToEncrypt",
+			},
+			ServerResponse: googleapi.ServerResponse{
+				HTTPStatusCode: http.StatusOK,
+			},
+		}
 		negativeTestIAMResponse = &cloudkms.TestIamPermissionsResponse{
 			Permissions: []string{},
 			ServerResponse: googleapi.ServerResponse{
@@ -57,38 +57,38 @@ func TestHealthzServer(t *testing.T) {
 		response []json.Marshaler
 		want     int
 	}{
-		//{
-		//	desc:     "Positive response for TestIAM, not pinging CloudKMS",
-		//	response: []json.Marshaler{positiveTestIAMResponse},
-		//	want:     http.StatusOK,
-		//},
+		{
+			desc:     "Positive response for TestIAM, not pinging CloudKMS",
+			response: []json.Marshaler{positiveTestIAMResponse},
+			want:     http.StatusOK,
+		},
 		{
 			desc:     "Negative response for TestIAM, not pinging CloudKMS",
 			response: []json.Marshaler{negativeTestIAMResponse},
 			want:     http.StatusForbidden,
 		},
-		//{
-		//	desc:     "Positive response for TestIAM, Positive ping from CloudKMS",
-		//	query:    "ping-kms=true",
-		//	response: []json.Marshaler{positiveTestIAMResponse, positiveEncryptResponse, positiveDecryptResponse},
-		//	want:     http.StatusOK,
-		//},
-		//{
-		//	desc:     "Positive response for TestIAM, Negative ping from CloudKMS",
-		//	query:    "ping-kms=true",
-		//	response: []json.Marshaler{positiveTestIAMResponse, negativeEncryptResponse},
-		//	want:     http.StatusServiceUnavailable,
-		//},
+		{
+			desc:     "Positive response for TestIAM, Positive ping from CloudKMS",
+			query:    "ping-kms=true",
+			response: []json.Marshaler{positiveTestIAMResponse, positiveEncryptResponse, positiveDecryptResponse},
+			want:     http.StatusOK,
+		},
+		{
+			desc:     "Positive response for TestIAM, Negative ping from CloudKMS",
+			query:    "ping-kms=true",
+			response: []json.Marshaler{positiveTestIAMResponse, negativeEncryptResponse},
+			want:     http.StatusServiceUnavailable,
+		},
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
-
 		t.Run(testCase.desc, func(t *testing.T) {
 			t.Parallel()
 
 			tt := setUpWithResponses(t, keyName, 0, testCase.response...)
-			defer tt.tearDown()
+			t.Cleanup(func() {
+				tt.tearDown()
+			})
 
 			// Ensure that serving both Metrics and Healthz
 			mustServeMetrics(t)
@@ -97,7 +97,7 @@ func TestHealthzServer(t *testing.T) {
 
 			u := url.URL{
 				Scheme:   "http",
-				Host:     net.JoinHostPort("localhost", strconv.FormatUint(uint64(healthzPort), 10)),
+				Host:     fmt.Sprintf("localhost:%d", healthzPort),
 				Path:     "healthz",
 				RawQuery: testCase.query,
 			}
@@ -120,8 +120,8 @@ func mustGetHealthz(t *testing.T, url url.URL) (int, []byte) {
 	if err != nil {
 		t.Fatalf("Unable to contact healthz endpoint of master: %v", err)
 	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	t.Cleanup(func() { resp.Body.Close() })
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Failed to read the Body of request for %v, error %v", url, err)
 	}
@@ -136,18 +136,16 @@ func mustServeHealthz(t *testing.T, tt *pluginTestCase) int {
 		t.Fatalf("Failed to allocate a free port for healthz server, err: %v", err)
 	}
 
-	h := &HealthZ{
-		KeyName:        tt.keyURI,
-		KeyService:     tt.keyService,
-		UnixSocketPath: tt.Plugin.pathToUnixSocket,
-		CallTimeout:    5 * time.Second,
-		ServingURL: &url.URL{
-			Host: net.JoinHostPort("localhost", strconv.FormatUint(uint64(p), 10)),
-			Path: "healthz",
-		},
+	u := &url.URL{
+		Host: fmt.Sprintf("localhost:%d", p),
+		Path: "healthz",
 	}
 
-	c := h.Serve()
+	healthChecker := NewHealthChecker()
+	healthCheckerManager := plugin.NewHealthChecker(healthChecker, tt.plugin.keyURI, tt.plugin.keyService, tt.socket, 5*time.Second, u)
+
+	c := healthCheckerManager.Serve()
+
 	// Giving some time for healthz server to start while listening on the error channel.
 	select {
 	case err := <-c:

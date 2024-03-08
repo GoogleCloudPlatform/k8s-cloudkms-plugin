@@ -1,3 +1,5 @@
 .ijwb
 .idea
 build/
+.vscode/
+.DS_Store

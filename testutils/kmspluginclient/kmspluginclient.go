@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin"
+	plugin "github.com/GoogleCloudPlatform/k8s-cloudkms-plugin/plugin/v1"
 	"google.golang.org/grpc"
 )
 
