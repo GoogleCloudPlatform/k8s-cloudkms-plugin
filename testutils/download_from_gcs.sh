@@ -20,7 +20,7 @@ set -o nounset
 
 GCS_BUCKET='tpm-lab'
 
-gsutil cp gs://"${GCS_BUCKET}"/tpmseal .
-gsutil cp gs://"${GCS_BUCKET}"/tpmunseal .
+gcloud storage cp gs://"${GCS_BUCKET}"/tpmseal .
+gcloud storage cp gs://"${GCS_BUCKET}"/tpmunseal .
 chmod +x tpmseal
 chmod +x tpmunseal
